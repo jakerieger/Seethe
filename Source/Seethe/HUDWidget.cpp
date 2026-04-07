@@ -10,26 +10,13 @@ void UHUDWidget::UpdateHealth(float HealthPercentage) {
     }
 }
 
-void UHUDWidget::SetCrosshairType(ECrosshairType Type) {
-    switch (Type) {
-        case ECrosshairType::Default: {
-            if (DefaultCrosshairTexture) {
-                CrosshairImage->SetBrushFromTexture(DefaultCrosshairTexture);
-            }
-            break;
-        }
-        case ECrosshairType::Revolver: {
-            if (RevolverCrosshairTexture) {
-                CrosshairImage->SetBrushFromTexture(RevolverCrosshairTexture);
-            }
-            break;
-        }
-    }
+void UHUDWidget::ToggleCrosshair(bool Visible) {
+    TargetCrosshairOpacity = Visible ? 0.5f : 0.0f;
 }
 
 void UHUDWidget::NativeConstruct() {
     Super::NativeConstruct();
-    SetCrosshairType(ECrosshairType::Default);
+    CrosshairImage->SetOpacity(CurrentCrosshairOpacity);
 }
 
 void UHUDWidget::NativeTick(const FGeometry& Geometry, float TimeDelta) {
@@ -48,13 +35,10 @@ void UHUDWidget::NativeTick(const FGeometry& Geometry, float TimeDelta) {
             }
         }
 
-        // If player is moving, fade crosshair
-        float TargetOpacity = 1.0f;
-        if (GetOwningPlayerPawn()->GetVelocity().Length() > 10.0f) {
-            TargetOpacity = 0.1f;
-        }
-
-        CurrentCrosshairOpacity = FMath::FInterpTo(CurrentCrosshairOpacity, TargetOpacity, TimeDelta, 10.0f);
+        CurrentCrosshairOpacity = FMath::FInterpTo(CurrentCrosshairOpacity,
+                                                   TargetCrosshairOpacity,
+                                                   GetWorld()->GetDeltaSeconds(),
+                                                   10.0f);
         CrosshairImage->SetOpacity(CurrentCrosshairOpacity);
     }
 }

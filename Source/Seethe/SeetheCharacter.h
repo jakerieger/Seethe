@@ -40,16 +40,26 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Input")
     TObjectPtr<UInputAction> HolsterAction;
 
+    UPROPERTY(EditAnywhere, Category = "Input")
+    TObjectPtr<UInputAction> ReloadAction;
+
     void Move(const FInputActionValue& Value);
     void Look(const FInputActionValue& Value);
     void Shoot(const FInputActionValue& Value);
     void Holster(const FInputActionValue& Value);
+    void Reload(const FInputActionValue& Value);
 
     UPROPERTY(EditAnywhere, Category = "HUD")
     TSubclassOf<class UHUDWidget> HUDWidgetClass;
 
     UPROPERTY(EditAnywhere, Category = "Revolver")
     TSubclassOf<class ARevolver> RevolverClass;
+
+    UPROPERTY(EditAnywhere, Category = "Revolver")
+    float DrawbackSpeed = 15.0f;
+
+    UPROPERTY(BlueprintReadOnly, Category = "Revolver")
+    float WeaponDrawbackDisplacement;
 
     UPROPERTY(EditAnywhere, Category = "Sway")
     float SwayAmount = 1.5f;
@@ -111,4 +121,8 @@ private:
 
     UPROPERTY()
     TObjectPtr<ARevolver> RevolverInstance;
+
+    void WeaponSway(float DeltaTime);
+    void WeaponAvoidClipping(float DeltaTime);
+    void CameraBob(float DeltaTime);
 };

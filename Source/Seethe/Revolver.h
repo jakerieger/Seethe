@@ -20,6 +20,9 @@ public:
     float BaseDamage = 20.f;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats")
+    float FireRate = 0.15f; // In seconds
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats")
     float BaseSpreadRadius = 0.5f; // MOA-style, in degrees
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats")
@@ -100,11 +103,17 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Revolver")
     bool GetHolstered() const;
 
+    UFUNCTION(BlueprintCallable, Category = "Revolver")
+    void Reload();
+
 private:
     int32 CurrentAmmo;
     bool bHolstered              = false;
     bool bIsHolstering           = false;
     float CylinderRotationTarget = 0.0f;
+    float LastFireTime;
+
+    void LoadBullets(bool Visible);
 
     UFUNCTION()
     void OnHolsterMontageEnded(UAnimMontage* Montage, bool bInterrupted, USkeletalMeshComponent* Arms);

@@ -9,12 +9,6 @@
 #include "Components/ProgressBar.h"
 #include "HUDWidget.generated.h"
 
-UENUM(BlueprintType)
-enum class ECrosshairType : uint8 {
-    Default = 0,
-    Revolver = 1,
-};
-
 UCLASS()
 class SEETHE_API UHUDWidget : public UUserWidget {
     GENERATED_BODY()
@@ -39,7 +33,7 @@ public:
     void UpdateHealth(float HealthPercentage);
 
     UFUNCTION(BlueprintCallable, Category = "UI")
-    void SetCrosshairType(ECrosshairType Type);
+    void ToggleCrosshair(bool Visible);
 
 protected:
     virtual void NativeConstruct() override;
@@ -53,5 +47,6 @@ private:
     float SwaySmoothing = 14.0f;
 
     FVector2D CurrentSwayOffset;
-    float CurrentCrosshairOpacity = 1.0f;
+    float CurrentCrosshairOpacity = 0.5f;
+    float TargetCrosshairOpacity  = 0.5f;
 };

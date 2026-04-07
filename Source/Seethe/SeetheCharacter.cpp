@@ -91,6 +91,12 @@ void ASeetheCharacter::Holster(const FInputActionValue& Value) {
     }
 }
 
+void ASeetheCharacter::Reload(const FInputActionValue& Value) {
+    if (RevolverInstance) {
+        RevolverInstance->Reload();
+    }
+}
+
 void ASeetheCharacter::Die() {
     DetachFromControllerPendingDestroy();
     SetActorHiddenInGame(true);
@@ -105,34 +111,13 @@ void ASeetheCharacter::Die() {
 
 void ASeetheCharacter::Tick(float DeltaTime) {
     Super::Tick(DeltaTime);
+    WeaponSway(DeltaTime);
 
-    // Arm sway calculation
-    const float TargetPitch = FMath::Clamp(MouseY * SwayAmount, -MaxSway, MaxSway);
-    const float TargetYaw   = FMath::Clamp(MouseX * SwayAmount, -MaxSway, MaxSway);
-
-    const FRotator TargetRot = FRotator(TargetPitch, TargetYaw, TargetYaw * 0.5f);
-    WeaponSwayRotation       = FMath::RInterpTo(WeaponSwayRotation, TargetRot, DeltaTime, SwaySmoothing);
-
-    MouseX = FMath::FInterpTo(MouseX, 0.f, DeltaTime, 10.0f);
-    MouseY = FMath::FInterpTo(MouseY, 0.f, DeltaTime, 10.0f);
-
-    // Camera bob
-    FVector Velocity = GetVelocity();
-    Velocity.Z       = 0; // Ignore jumping/falling
-
-    if (const float Speed = Velocity.Size(); Speed > 0 && !GetCharacterMovement()->IsFalling()) {
-        BobTimer += DeltaTime * (Speed / 100.0f) * BobFrequency;
-
-        FVector NewLocation = DefaultCameraLocation;
-        NewLocation.Z       += FMath::Sin(BobTimer) * BobAmplitude;
-        NewLocation.Y       += FMath::Cos(BobTimer * 0.5f) * (BobAmplitude * 0.5f);
-        FirstPersonCamera->SetRelativeLocation(NewLocation);
-    } else {
-        BobTimer                 = 0.0f;
-        const FVector CurrentLoc = FirstPersonCamera->GetRelativeLocation();
-        const FVector ResetLoc   = FMath::VInterpTo(CurrentLoc, DefaultCameraLocation, DeltaTime, 10.0f);
-        FirstPersonCamera->SetRelativeLocation(ResetLoc);
+    if (RevolverInstance && !RevolverInstance->GetHolstered()) {
+        WeaponAvoidClipping(DeltaTime);
     }
+
+    CameraBob(DeltaTime);
 }
 
 void ASeetheCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
@@ -141,6 +126,7 @@ void ASeetheCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
         EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Look);
         EnhancedInputComponent->BindAction(ShootAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Shoot);
         EnhancedInputComponent->BindAction(HolsterAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Holster);
+        EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Reload);
     }
 }
 
@@ -191,6 +177,61 @@ void ASeetheCharacter::UpdateHolstered(const bool Holstered) {
     Flashlight->SetVisibility(Holstered);
 
     if (HUDWidget) {
-        HUDWidget->SetCrosshairType(Holstered ? ECrosshairType::Default : ECrosshairType::Revolver);
+        HUDWidget->ToggleCrosshair(!Holstered);
+    }
+}
+
+void ASeetheCharacter::WeaponSway(const float DeltaTime) {
+    const float TargetPitch = FMath::Clamp(MouseY * SwayAmount, -MaxSway, MaxSway);
+    const float TargetYaw   = FMath::Clamp(MouseX * SwayAmount, -MaxSway, MaxSway);
+
+    const FRotator TargetRot = FRotator(TargetPitch, TargetYaw, TargetYaw * 0.5f);
+    WeaponSwayRotation       = FMath::RInterpTo(WeaponSwayRotation, TargetRot, DeltaTime, SwaySmoothing);
+
+    MouseX = FMath::FInterpTo(MouseX, 0.f, DeltaTime, 10.0f);
+    MouseY = FMath::FInterpTo(MouseY, 0.f, DeltaTime, 10.0f);
+}
+
+void ASeetheCharacter::WeaponAvoidClipping(float DeltaTime) {
+    FHitResult WallHit;
+    FVector Start = FirstPersonCamera->GetComponentLocation();
+    FVector End   = Start + (FirstPersonCamera->GetForwardVector() * 100.0f); // roughly arm length, may need tweaking
+
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(this);
+    if (RevolverInstance) {
+        Params.AddIgnoredActor(RevolverInstance);
+    }
+
+    const bool bHit = GetWorld()->SweepSingleByChannel(WallHit,
+                                                       Start,
+                                                       End,
+                                                       FQuat::Identity,
+                                                       ECC_Visibility,
+                                                       FCollisionShape::MakeSphere(10.f),
+                                                       Params);
+    const float TargetDisplacement = bHit ? (End - WallHit.Location).Size() : 0.0f;
+    WeaponDrawbackDisplacement     = FMath::FInterpTo(WeaponDrawbackDisplacement,
+                                                  TargetDisplacement,
+                                                  DeltaTime,
+                                                  DrawbackSpeed);
+}
+
+void ASeetheCharacter::CameraBob(float DeltaTime) {
+    FVector Velocity = GetVelocity();
+    Velocity.Z       = 0; // Ignore jumping/falling
+
+    if (const float Speed = Velocity.Size(); Speed > 0 && !GetCharacterMovement()->IsFalling()) {
+        BobTimer += DeltaTime * (Speed / 100.0f) * BobFrequency;
+
+        FVector NewLocation = DefaultCameraLocation;
+        NewLocation.Z       += FMath::Sin(BobTimer) * BobAmplitude;
+        NewLocation.Y       += FMath::Cos(BobTimer * 0.5f) * (BobAmplitude * 0.5f);
+        FirstPersonCamera->SetRelativeLocation(NewLocation);
+    } else {
+        BobTimer                 = 0.0f;
+        const FVector CurrentLoc = FirstPersonCamera->GetRelativeLocation();
+        const FVector ResetLoc   = FMath::VInterpTo(CurrentLoc, DefaultCameraLocation, DeltaTime, 10.0f);
+        FirstPersonCamera->SetRelativeLocation(ResetLoc);
     }
 }

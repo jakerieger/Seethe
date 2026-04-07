@@ -14,11 +14,19 @@ ARevolver::ARevolver() {
     RevolverMesh = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("RevolverMesh"));
     RevolverMesh->SetupAttachment(RootComponent);
 
-    CurrentAmmo = /*KTotalChambers;*/ 500;
+    CurrentAmmo = KTotalChambers;
 }
 
-void ARevolver::BeginPlay() {
-    Super::BeginPlay();
+void ARevolver::LoadBullets(bool Visible = false) {
+    if (!VisualBullets.IsEmpty()) {
+        for (const auto& Bullet : VisualBullets) {
+            if (Bullet.Get() && Bullet->IsValidLowLevel()) {
+                Bullet->DestroyComponent();
+            }
+        }
+
+        VisualBullets.Empty();
+    }
 
     for (int32 i = 0; i < KTotalChambers; i++) {
         FName SocketName = FName(*FString::Printf(TEXT("Chamber_%d"), i + 1));
@@ -31,10 +39,15 @@ void ARevolver::BeginPlay() {
                                       FAttachmentTransformRules::SnapToTargetIncludingScale,
                                       SocketName);
             Bullet->SetRelativeTransform(BulletOffset);
-            Bullet->SetVisibility(false);
+            Bullet->SetVisibility(Visible);
             VisualBullets.Add(Bullet);
         }
     }
+}
+
+void ARevolver::BeginPlay() {
+    Super::BeginPlay();
+    LoadBullets();
 }
 
 void ARevolver::Tick(const float DeltaSeconds) {
@@ -63,7 +76,14 @@ void ARevolver::Equip(USkeletalMeshComponent* Arms, const bool Holstered) {
 }
 
 void ARevolver::Fire(APlayerController* PC, USkeletalMeshComponent* Arms) {
-    if (bIsHolstering || bHolstered) {
+    bool bCanShoot    = false;
+    float CurrentTime = GetWorld()->GetTimeSeconds();
+    if (CurrentTime - LastFireTime >= FireRate) {
+        bCanShoot    = true;
+        LastFireTime = CurrentTime;
+    }
+
+    if (!bCanShoot || bIsHolstering || bHolstered) {
         return;
     }
 
@@ -241,6 +261,15 @@ void ARevolver::ToggleHolster(USkeletalMeshComponent* Arms) {
 
 bool ARevolver::GetHolstered() const {
     return bHolstered || bIsHolstering;
+}
+
+void ARevolver::Reload() {
+    if (GetHolstered() || (CurrentAmmo >= KTotalChambers)) {
+        return;
+    }
+
+    CurrentAmmo = KTotalChambers;
+    LoadBullets(true);
 }
 
 void ARevolver::OnHolsterMontageEnded(UAnimMontage* Montage, bool bInterrupted, USkeletalMeshComponent* Arms) {
