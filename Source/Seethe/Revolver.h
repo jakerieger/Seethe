@@ -19,8 +19,11 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats")
     float BaseDamage = 20.f;
 
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Projectile")
-    TSubclassOf<class ARevolverProjectile> ProjectileClass;
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats")
+    float BaseSpreadRadius = 0.5f; // MOA-style, in degrees
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats")
+    float RecoilInfluence = 0.4f; // 0 = pure camera, 1 = pure muzzle
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Audio")
     TObjectPtr<USoundBase> ShootSound;
@@ -33,6 +36,12 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Audio")
     TObjectPtr<USoundBase> HolsterSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Audio")
+    TObjectPtr<USoundBase> ImpactSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Audio")
+    TObjectPtr<USoundBase> ImpactSoundEnemy;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Effects")
     TObjectPtr<UAnimMontage> ShootMontage;
@@ -54,6 +63,12 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Effects")
     TObjectPtr<UStaticMesh> BulletMesh;
+
+    UPROPERTY(EditAnywhere, Category="Effects")
+    TObjectPtr<UNiagaraSystem> ImpactFX;
+
+    UPROPERTY(EditAnywhere, Category="Effects")
+    TObjectPtr<UMaterialInterface> ImpactDecal;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Transform")
     FTransform AttachOffset;
@@ -77,7 +92,7 @@ public:
     void Equip(USkeletalMeshComponent* Arms, bool Holstered = false);
 
     UFUNCTION(BlueprintCallable, Category = "Revolver")
-    void Fire(USkeletalMeshComponent* Arms);
+    void Fire(APlayerController* PC, USkeletalMeshComponent* Arms);
 
     UFUNCTION(BlueprintCallable, Category = "Revolver")
     void ToggleHolster(USkeletalMeshComponent* Arms);

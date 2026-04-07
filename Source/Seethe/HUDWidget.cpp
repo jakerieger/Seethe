@@ -51,7 +51,7 @@ void UHUDWidget::NativeTick(const FGeometry& Geometry, float TimeDelta) {
         // If player is moving, fade crosshair
         float TargetOpacity = 1.0f;
         if (GetOwningPlayerPawn()->GetVelocity().Length() > 10.0f) {
-            TargetOpacity = 0.5f;
+            TargetOpacity = 0.1f;
         }
 
         CurrentCrosshairOpacity = FMath::FInterpTo(CurrentCrosshairOpacity, TargetOpacity, TimeDelta, 10.0f);

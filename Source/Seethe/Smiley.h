@@ -14,13 +14,6 @@ class SEETHE_API ASmiley : public APawn {
     TObjectPtr<USkeletalMeshComponent> SmileyMesh;
 
 public:
-    UPROPERTY(EditAnywhere, Category="Effects")
-    TObjectPtr<USoundBase> HitSound;
-
-    UPROPERTY(EditAnywhere, Category="Effects")
-    TObjectPtr<USoundBase> DieSound;
-
-public:
     ASmiley();
 
     virtual float TakeDamage(float DamageAmount,
@@ -32,6 +25,9 @@ public:
     virtual void Tick(float DeltaTime) override;
 
     void Die(const FVector& HitDirection);
+
+    UPROPERTY(EditAnywhere, Category="Effects")
+    TObjectPtr<USoundBase> DieSound;
 
 protected:
     virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;

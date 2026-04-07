@@ -11,6 +11,7 @@ ASmiley::ASmiley() {
     SmileyMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
     SmileyMesh->SetCollisionObjectType(ECC_Pawn);
     SmileyMesh->SetNotifyRigidBodyCollision(true);
+    SmileyMesh->SetCollisionResponseToAllChannels(ECR_Block);
     RootComponent = SmileyMesh;
 }
 
@@ -21,7 +22,6 @@ float ASmiley::TakeDamage(float DamageAmount,
     const float DamageToApply = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
     CurrentHealth -= DamageToApply;
-    UGameplayStatics::PlaySoundAtLocation(this, HitSound, GetOwner()->GetActorLocation());
 
     if (CurrentHealth <= 0.0f) {
         FVector ImpulseDir = FVector::ZeroVector;

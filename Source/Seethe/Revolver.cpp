@@ -2,7 +2,7 @@
 
 #include "Revolver.h"
 #include "NiagaraFunctionLibrary.h"
-#include "RevolverProjectile.h"
+#include "Components/DecalComponent.h"
 #include "Kismet/GameplayStatics.h"
 
 static constexpr int32 KTotalChambers      = 5;
@@ -62,7 +62,7 @@ void ARevolver::Equip(USkeletalMeshComponent* Arms, const bool Holstered) {
     bIsHolstering = false;
 }
 
-void ARevolver::Fire(USkeletalMeshComponent* Arms) {
+void ARevolver::Fire(APlayerController* PC, USkeletalMeshComponent* Arms) {
     if (bIsHolstering || bHolstered) {
         return;
     }
@@ -103,21 +103,93 @@ void ARevolver::Fire(USkeletalMeshComponent* Arms) {
         }
     }
 
-    if (ProjectileClass) {
-        FVector MuzzleLocation        = RevolverMesh->GetSocketLocation("MuzzleSocket");
-        const FRotator MuzzleRotation = RevolverMesh->GetSocketRotation("MuzzleSocket");
-
-        FActorSpawnParameters SpawnParams;
-        SpawnParams.Owner      = GetOwner();
-        SpawnParams.Instigator = GetInstigator();
-
-        GetWorld()->SpawnActor<ARevolverProjectile>(ProjectileClass, MuzzleLocation, MuzzleRotation, SpawnParams);
-    }
-
     int32 BulletIndex = (KTotalChambers - CurrentAmmo);
     if (VisualBullets.IsValidIndex(BulletIndex) && VisualBullets[BulletIndex]) {
         VisualBullets[BulletIndex]->DestroyComponent();
         VisualBullets[BulletIndex] = nullptr;
+    }
+
+    if (PC) {
+        FVector CamLoc;
+        FRotator CamRot;
+        PC->GetPlayerViewPoint(CamLoc, CamRot);
+
+        const FVector MuzzleForward = RevolverMesh->GetSocketRotation("MuzzleSocket").Vector();
+        const FVector CamForward    = CamRot.Vector();
+        // Blend camera direction toward muzzle direction based on RecoilInfluence
+        // When recoil animation raises the muzzle, MuzzleForward diverges from CamForward
+        // and shots become inaccurate proportionally
+        const FVector BlendedForward = FMath::Lerp(CamForward, MuzzleForward, RecoilInfluence).GetSafeNormal();
+
+        float DynamicSpread = BaseSpreadRadius;
+
+        if (APawn* OwnerPawn = Cast<APawn>(GetOwner())) {
+            const float Speed = OwnerPawn->GetVelocity().Size2D();
+            DynamicSpread     += FMath::GetMappedRangeValueClamped(
+                FVector2D(0.f, 400.f),
+                FVector2D(0.f, 3.f),
+                Speed);
+        }
+
+        const FVector SpreadForward = FMath::VRandCone(BlendedForward, FMath::DegreesToRadians(DynamicSpread));
+        const FVector TraceStart    = CamLoc;
+        const FVector TraceEnd      = TraceStart + SpreadForward * 50000.f; // ~500m range
+
+        FHitResult Hit;
+        FCollisionQueryParams Params;
+        Params.AddIgnoredActor(this);
+        Params.AddIgnoredActor(GetOwner());
+        Params.bTraceComplex           = true; // needed for bone-level hits
+        Params.bReturnPhysicalMaterial = true;
+
+        if (GetWorld()->LineTraceSingleByChannel(Hit,
+                                                 TraceStart,
+                                                 TraceEnd,
+                                                 ECC_Visibility,
+                                                 Params)) {
+            if (ImpactFX) {
+                UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(),
+                                                               ImpactFX,
+                                                               Hit.ImpactPoint,
+                                                               Hit.ImpactNormal.Rotation());
+            }
+
+            if (ImpactDecal) {
+                auto* Decal = UGameplayStatics::SpawnDecalAtLocation(GetWorld(),
+                                                                     ImpactDecal,
+                                                                     FVector(8.f, 8.f, 8.f),
+                                                                     Hit.ImpactPoint,
+                                                                     Hit.ImpactNormal.Rotation(),
+                                                                     10.0f);
+                if (Decal) {
+                    Decal->SetFadeScreenSize(0.0001f);
+                }
+            }
+
+            // Calculate damage and apply
+            if (Hit.BoneName != NAME_None) {
+                float Damage = BaseDamage;
+                if (Hit.BoneName == FName("head")) {
+                    Damage *= 2.0f;
+                }
+
+                UGameplayStatics::ApplyPointDamage(Hit.GetActor(),
+                                                   Damage,
+                                                   CamRot.Vector(),
+                                                   Hit,
+                                                   PC,
+                                                   this,
+                                                   nullptr);
+
+                if (ImpactSoundEnemy) {
+                    UGameplayStatics::PlaySoundAtLocation(this, ImpactSoundEnemy, Hit.ImpactPoint);
+                }
+            } else {
+                if (ImpactSound) {
+                    UGameplayStatics::PlaySoundAtLocation(this, ImpactSound, Hit.ImpactPoint);
+                }
+            }
+        }
     }
 
     CylinderRotationTarget += KChamberRotateDelta;

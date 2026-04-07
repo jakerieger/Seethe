@@ -79,7 +79,8 @@ void ASeetheCharacter::Look(const FInputActionValue& Value) {
 
 void ASeetheCharacter::Shoot(const FInputActionValue& Value) {
     if (RevolverInstance) {
-        RevolverInstance->Fire(FirstPersonArms);
+        APlayerController* PC = Cast<APlayerController>(GetController());
+        RevolverInstance->Fire(PC, FirstPersonArms);
     }
 }
 
