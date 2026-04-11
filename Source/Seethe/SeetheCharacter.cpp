@@ -97,6 +97,12 @@ void ASeetheCharacter::Reload(const FInputActionValue& Value) {
     }
 }
 
+void ASeetheCharacter::Inspect(const FInputActionValue& Value) {
+    if (RevolverInstance) {
+        RevolverInstance->Inspect(FirstPersonArms);
+    }
+}
+
 void ASeetheCharacter::Die() {
     DetachFromControllerPendingDestroy();
     SetActorHiddenInGame(true);
@@ -127,6 +133,7 @@ void ASeetheCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
         EnhancedInputComponent->BindAction(ShootAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Shoot);
         EnhancedInputComponent->BindAction(HolsterAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Holster);
         EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Reload);
+        EnhancedInputComponent->BindAction(InspectAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Inspect);
     }
 }
 

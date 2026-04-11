@@ -43,11 +43,15 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Input")
     TObjectPtr<UInputAction> ReloadAction;
 
+    UPROPERTY(EditAnywhere, Category = "Input")
+    TObjectPtr<UInputAction> InspectAction;
+
     void Move(const FInputActionValue& Value);
     void Look(const FInputActionValue& Value);
     void Shoot(const FInputActionValue& Value);
     void Holster(const FInputActionValue& Value);
     void Reload(const FInputActionValue& Value);
+    void Inspect(const FInputActionValue& Value);
 
     UPROPERTY(EditAnywhere, Category = "HUD")
     TSubclassOf<class UHUDWidget> HUDWidgetClass;
@@ -79,9 +83,14 @@ public:
     virtual void Tick(float DeltaTime) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
-    UFUNCTION(BlueprintCallable, Category = "HUD")
+    UFUNCTION(BlueprintCallable, Category = "First Person")
     FORCEINLINE USkeletalMeshComponent* GetFirstPersonMesh() const {
         return FirstPersonArms;
+    }
+
+    UFUNCTION(BlueprintCallable, Category = "HUD")
+    FORCEINLINE UHUDWidget* GetHUD() const {
+        return HUDWidget;
     }
 
     virtual float TakeDamage(float DamageAmount,
@@ -102,10 +111,10 @@ private:
     static constexpr float KWalkSpeedUnholstered = 300;
 
     static constexpr float KBobFreqHolstered   = 4.0f;
-    static constexpr float KBobFreqUnholstered = 2.0f;
+    static constexpr float KBobFreqUnholstered = 3.0f;
 
     float BobTimer     = 0.0f;
-    float BobFrequency = 2.0f;
+    float BobFrequency = KBobFreqUnholstered;
 
     UPROPERTY(EditAnywhere, Category = "Camera Bob")
     float BobAmplitude = 4.0f;

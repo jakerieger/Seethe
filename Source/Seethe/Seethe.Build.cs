@@ -12,6 +12,9 @@ public class Seethe : ModuleRules
 			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "Slate", "SlateCore", "Niagara"
 		]);
 
+		// Uncomment this if you want to visualize line traces
+		// PublicDefinitions.Add("SEETHE_ENABLE_DEBUG_TRACES=1");
+
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		// Uncomment if you are using Slate UI

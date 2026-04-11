@@ -21,6 +21,9 @@ public:
     TObjectPtr<UImage> CrosshairImage;
 
     UPROPERTY(meta = (BindWidget))
+    TObjectPtr<UImage> HitmarkerImage;
+
+    UPROPERTY(meta = (BindWidget))
     TObjectPtr<UProgressBar> HealthBar;
 
     UPROPERTY(EditAnywhere, Category = "Crosshair")
@@ -34,6 +37,9 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "UI")
     void ToggleCrosshair(bool Visible);
+
+    UFUNCTION(BlueprintCallable, Category = "UI")
+    void TriggerHitmarker();
 
 protected:
     virtual void NativeConstruct() override;
@@ -49,4 +55,6 @@ private:
     FVector2D CurrentSwayOffset;
     float CurrentCrosshairOpacity = 0.5f;
     float TargetCrosshairOpacity  = 0.5f;
+    float HitmarkerTimer          = 0.0f;
+    float HitmarkerDuration       = 0.3f;
 };

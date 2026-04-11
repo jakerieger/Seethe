@@ -28,6 +28,9 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats")
     float RecoilInfluence = 0.4f; // 0 = pure camera, 1 = pure muzzle
 
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Stats")
+    float ImpactVelocity = 1100.0f;
+
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Audio")
     TObjectPtr<USoundBase> ShootSound;
 
@@ -59,6 +62,12 @@ public:
     TObjectPtr<UAnimMontage> HolsterMontage;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Effects")
+    TObjectPtr<UAnimMontage> InspectMontage;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Effects")
+    TObjectPtr<UAnimMontage> InspectRevolverMontage;
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Effects")
     TObjectPtr<class UNiagaraSystem> MuzzleFlashFX;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Effects")
@@ -71,7 +80,19 @@ public:
     TObjectPtr<UNiagaraSystem> ImpactFX;
 
     UPROPERTY(EditAnywhere, Category="Effects")
+    TObjectPtr<UNiagaraSystem> ImpactEnemyFX;
+
+    UPROPERTY(EditAnywhere, Category="Effects")
+    TObjectPtr<UNiagaraSystem> ExitWoundFX;
+
+    UPROPERTY(EditAnywhere, Category="Effects")
     TObjectPtr<UMaterialInterface> ImpactDecal;
+
+    UPROPERTY(EditAnywhere, Category="Effects")
+    TObjectPtr<UMaterialInterface> ImpactEnemyDecal;
+
+    UPROPERTY(EditAnywhere, Category="Effects")
+    TObjectPtr<UMaterialInterface> BloodSpatterDecal;
 
     UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Transform")
     FTransform AttachOffset;
@@ -106,6 +127,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Revolver")
     void Reload();
 
+    UFUNCTION(BlueprintCallable, Category = "Revolver")
+    void Inspect(USkeletalMeshComponent* Arms);
+
 private:
     int32 CurrentAmmo;
     bool bHolstered              = false;
@@ -114,6 +138,16 @@ private:
     float LastFireTime;
 
     void LoadBullets(bool Visible);
+    void FireEmpty(USkeletalMeshComponent* Arms);
+
+    /**
+     * Handles the initial shot trace.
+     * Returns true if trace hits an enemy and stores the result in `OutResult`
+     */
+    bool PrimaryTrace(APlayerController* PC, FHitResult& OutResult);
+
+    /** Handles exit wound trajectory */
+    void SecondaryTrace(const APlayerController* PC, const FHitResult& OutResult) const;
 
     UFUNCTION()
     void OnHolsterMontageEnded(UAnimMontage* Montage, bool bInterrupted, USkeletalMeshComponent* Arms);

@@ -14,6 +14,13 @@ void UHUDWidget::ToggleCrosshair(bool Visible) {
     TargetCrosshairOpacity = Visible ? 0.5f : 0.0f;
 }
 
+void UHUDWidget::TriggerHitmarker() {
+    if (HitmarkerImage) {
+        HitmarkerTimer = HitmarkerDuration;
+        HitmarkerImage->SetOpacity(1.0f);
+    }
+}
+
 void UHUDWidget::NativeConstruct() {
     Super::NativeConstruct();
     CrosshairImage->SetOpacity(CurrentCrosshairOpacity);
@@ -35,10 +42,27 @@ void UHUDWidget::NativeTick(const FGeometry& Geometry, float TimeDelta) {
             }
         }
 
+        if (HitmarkerImage) {
+            if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(HitmarkerImage->Slot)) {
+                CanvasSlot->SetPosition(CurrentSwayOffset);
+            }
+        }
+
         CurrentCrosshairOpacity = FMath::FInterpTo(CurrentCrosshairOpacity,
                                                    TargetCrosshairOpacity,
                                                    GetWorld()->GetDeltaSeconds(),
                                                    10.0f);
         CrosshairImage->SetOpacity(CurrentCrosshairOpacity);
+    }
+
+    if (HitmarkerTimer > 0.0f) {
+        HitmarkerTimer -= TimeDelta;
+
+        float HitOpacity = FMath::Clamp(HitmarkerTimer / HitmarkerDuration, 0.0f, 1.0f);
+        HitmarkerImage->SetOpacity(HitOpacity);
+
+        if (HitmarkerTimer <= 0.0f) {
+            HitmarkerImage->SetOpacity(0.0f);
+        }
     }
 }
