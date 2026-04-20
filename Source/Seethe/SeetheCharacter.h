@@ -3,10 +3,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "InputActionValue.h"
 #include "GameFramework/Character.h"
-#include "Camera/CameraComponent.h"
+#include "InteractableInterface.h"
+#include "WeaponInterface.h"
 #include "SeetheCharacter.generated.h"
+
+class UInputAction;
+class ABaseWeapon;
+class AWeaponPickup;
+class UCameraComponent;
+class AFlashlight;
+class UHUDWidget;
+struct FInputActionValue;
 
 UCLASS()
 class SEETHE_API ASeetheCharacter : public ACharacter {
@@ -18,9 +26,6 @@ class SEETHE_API ASeetheCharacter : public ACharacter {
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<USkeletalMeshComponent> FirstPersonArms;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-    TObjectPtr<class USpotLightComponent> Flashlight;
-
 public:
     ASeetheCharacter();
 
@@ -28,14 +33,15 @@ public:
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 protected:
+    /** Properties **/
     UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<class UInputAction> MoveAction;
+    TObjectPtr<UInputAction> MoveAction;
 
     UPROPERTY(EditAnywhere, Category = "Input")
     TObjectPtr<UInputAction> LookAction;
 
     UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> ShootAction;
+    TObjectPtr<UInputAction> AttackAction;
 
     UPROPERTY(EditAnywhere, Category = "Input")
     TObjectPtr<UInputAction> HolsterAction;
@@ -46,36 +52,45 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Input")
     TObjectPtr<UInputAction> InspectAction;
 
-    void Move(const FInputActionValue& Value);
-    void Look(const FInputActionValue& Value);
-    void Shoot(const FInputActionValue& Value);
-    void Holster(const FInputActionValue& Value);
-    void Reload(const FInputActionValue& Value);
-    void Inspect(const FInputActionValue& Value);
+    UPROPERTY(EditAnywhere, Category = "Input")
+    TObjectPtr<UInputAction> InteractAction;
 
-    UPROPERTY(EditAnywhere, Category = "HUD")
-    TSubclassOf<class UHUDWidget> HUDWidgetClass;
+    UPROPERTY(EditAnywhere, Category = "Input")
+    TObjectPtr<UInputAction> FlashlightPowerAction;
 
-    UPROPERTY(EditAnywhere, Category = "Revolver")
-    TSubclassOf<class ARevolver> RevolverClass;
+    UPROPERTY(EditAnywhere, Category="Flashlight")
+    TSubclassOf<AFlashlight> FlashlightClass;
 
-    UPROPERTY(EditAnywhere, Category = "Revolver")
+    UPROPERTY(EditAnywhere, Category="Flashlight")
+    TSubclassOf<UAnimInstance> FlashlightAnimLayer;
+
+    UPROPERTY(EditAnywhere, Category = "Weapon")
     float DrawbackSpeed = 15.0f;
 
-    UPROPERTY(BlueprintReadOnly, Category = "Revolver")
+    UPROPERTY(BlueprintReadOnly, Category = "Weapon")
     float WeaponDrawbackDisplacement;
 
     UPROPERTY(EditAnywhere, Category = "Sway")
     float SwayAmount = 1.5f;
 
     UPROPERTY(EditAnywhere, Category = "Sway")
-    float MaxSway = 10.0f;
+    float MaxSway = 5.0f;
 
     UPROPERTY(EditAnywhere, Category = "Sway")
-    float SwaySmoothing = 8.0f;
+    float SwaySmoothing = 10.0f;
 
     UPROPERTY(BlueprintReadOnly, Category = "Sway")
     FRotator WeaponSwayRotation;
+
+    /** Input methods **/
+    void Move(const FInputActionValue& Value);
+    void Look(const FInputActionValue& Value);
+    void Attack(const FInputActionValue& Value);
+    void Holster(const FInputActionValue& Value);
+    void Reload(const FInputActionValue& Value);
+    void Inspect(const FInputActionValue& Value);
+    void Interact(const FInputActionValue& Value);
+    void FlashlightPower(const FInputActionValue& Value);
 
     void Die();
 
@@ -83,55 +98,70 @@ public:
     virtual void Tick(float DeltaTime) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
+    /** Public Getters **/
     UFUNCTION(BlueprintCallable, Category = "First Person")
-    FORCEINLINE USkeletalMeshComponent* GetFirstPersonMesh() const {
-        return FirstPersonArms;
-    }
+    USkeletalMeshComponent* GetMesh1P() const;
 
-    UFUNCTION(BlueprintCallable, Category = "HUD")
-    FORCEINLINE UHUDWidget* GetHUD() const {
-        return HUDWidget;
-    }
+    UFUNCTION(BlueprintCallable, Category = "First Person")
+    UCameraComponent* GetCamera1P() const;
+
+    UFUNCTION(BlueprintCallable, Category = "Weapon")
+    ABaseWeapon* GetCurrentWeapon() const;
+
+    UFUNCTION(BlueprintCallable, Category = "Flashlight")
+    AFlashlight* GetFlashlight() const;
+
+    UFUNCTION(BlueprintPure, Category = "Weapon")
+    bool HasWeapon() const;
+
+    UFUNCTION(BlueprintPure, Category = "Health")
+    float GetHealthPercent() const;
+
+    UFUNCTION(BlueprintPure, Category = "HUD")
+    UHUDWidget* GetHUD() const;
 
     virtual float TakeDamage(float DamageAmount,
-                             const struct FDamageEvent& DamageEvent,
-                             class AController* EventInstigator,
+                             const FDamageEvent& DamageEvent,
+                             AController* EventInstigator,
                              AActor* DamageCauser) override;
 
-    UFUNCTION(BlueprintCallable, Category = "Revolver")
-    void EquipRevolver();
-
-    UFUNCTION(BlueprintCallable, Category = "Revolver")
-    bool GetRevolverHolstered() const;
+    void EquipWeapon(const TSubclassOf<AWeaponPickup>& PickupClass,
+                     const TSubclassOf<ABaseWeapon>& WeaponClass);
+    void DropWeapon();
 
 private:
-    void UpdateHolstered(bool Holstered);
-
-    static constexpr float KWalkSpeedHolstered   = 400;
-    static constexpr float KWalkSpeedUnholstered = 300;
-
-    static constexpr float KBobFreqHolstered   = 4.0f;
-    static constexpr float KBobFreqUnholstered = 3.0f;
-
+    float BobAmplitude = 2.0f;
     float BobTimer     = 0.0f;
-    float BobFrequency = KBobFreqUnholstered;
-
-    UPROPERTY(EditAnywhere, Category = "Camera Bob")
-    float BobAmplitude = 4.0f;
-
+    float BobFrequency = 7.0f;
     FVector DefaultCameraLocation;
-
-    int32 CurrentHealth = 100;
-
-    float MouseX, MouseY;
-
-    UPROPERTY()
-    TObjectPtr<UHUDWidget> HUDWidget;
+    int32 CurrentHealth    = 100;
+    float InteractRange    = 300.0f;
+    float EnemyDetectRange = 1200.0f;
+    float LookAxisX        = 0, LookAxisY = 0;
+    FTransform FlashlightOffset;
 
     UPROPERTY()
-    TObjectPtr<ARevolver> RevolverInstance;
+    TObjectPtr<AFlashlight> Flashlight;
 
+    UPROPERTY()
+    TObjectPtr<ABaseWeapon> CurrentWeapon;
+
+    UPROPERTY()
+    TSubclassOf<ABaseWeapon> CurrentWeaponClass;
+
+    UPROPERTY()
+    TSubclassOf<AWeaponPickup> LastWeaponPickupClass;
+
+    UPROPERTY()
+    TScriptInterface<IInteractableInterface> CurrentInteractable;
+
+    IWeaponInterface* GetWeaponInterface() const;
     void WeaponSway(float DeltaTime);
     void WeaponAvoidClipping(float DeltaTime);
     void CameraBob(float DeltaTime);
+    void TraceForInteractables();
+    void TraceForEnemies() const;
+
+    UFUNCTION()
+    void StopLook();
 };

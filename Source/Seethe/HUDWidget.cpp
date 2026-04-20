@@ -4,65 +4,127 @@
 #include "HUDWidget.h"
 #include "Components/CanvasPanelSlot.h"
 
-void UHUDWidget::UpdateHealth(float HealthPercentage) {
+void UHUDWidget::NativeConstruct() {
+    Super::NativeConstruct();
+    WeaponCrosshairImage->SetVisibility(ESlateVisibility::Hidden);
+}
+
+UHUDWidget* UHUDWidget::UpdateHealth(const float HealthPercentage) {
     if (HealthBar) {
         HealthBar->SetPercent(HealthPercentage);
+
+        if (HealthPercentage <= 0.25f) {
+            HealthBar->SetFillColorAndOpacity(FLinearColor::Red);
+        }
     }
+    return this;
 }
 
-void UHUDWidget::ToggleCrosshair(bool Visible) {
-    TargetCrosshairOpacity = Visible ? 0.5f : 0.0f;
+UHUDWidget* UHUDWidget::SetWeaponCrosshairTexture(UTexture2D* CrosshairTexture) {
+    if (CrosshairTexture) { WeaponCrosshairImage->SetBrushFromTexture(CrosshairTexture); }
+    return this;
 }
 
-void UHUDWidget::TriggerHitmarker() {
+UHUDWidget* UHUDWidget::ShowWeaponCrosshair() {
+    WeaponCrosshairImage->SetVisibility(ESlateVisibility::Visible);
+    return this;
+}
+
+UHUDWidget* UHUDWidget::HideWeaponCrosshair() {
+    WeaponCrosshairImage->SetVisibility(ESlateVisibility::Hidden);
+    return this;
+}
+
+UHUDWidget* UHUDWidget::TriggerHitmarker() {
     if (HitmarkerImage) {
         HitmarkerTimer = HitmarkerDuration;
         HitmarkerImage->SetOpacity(1.0f);
     }
+    return this;
 }
 
-void UHUDWidget::NativeConstruct() {
-    Super::NativeConstruct();
-    CrosshairImage->SetOpacity(CurrentCrosshairOpacity);
+UHUDWidget* UHUDWidget::ShowInteractText(const FString& Text) {
+    InteractText->SetVisibility(ESlateVisibility::Visible);
+    InteractText->SetText(FText::FromString(Text));
+    return this;
 }
 
-void UHUDWidget::NativeTick(const FGeometry& Geometry, float TimeDelta) {
+UHUDWidget* UHUDWidget::HideInteractText() {
+    InteractText->SetVisibility(ESlateVisibility::Hidden);
+    return this;
+}
+
+UHUDWidget* UHUDWidget::SetCrosshairColor(const FColor& Color) {
+    WeaponCrosshairImage->SetBrushTintColor(Color);
+    return this;
+}
+
+UHUDWidget* UHUDWidget::UpdateBatteryChargeState(const EBatteryChargeState State) {
+    SetChargeIconBlink(false);
+
+    switch (State) {
+        case EBatteryChargeState::BCS_Dead: {
+            BatteryIcon->SetBrushFromTexture(BatteryDeadIcon);
+            SetChargeIconBlink(true);
+            break;
+        }
+        case EBatteryChargeState::BCS_Low: {
+            BatteryIcon->SetBrushFromTexture(BatteryLowChargeIcon);
+            break;
+        }
+        case EBatteryChargeState::BCS_Mid: {
+            BatteryIcon->SetBrushFromTexture(BatteryMidChargeIcon);
+            break;
+        }
+        case EBatteryChargeState::BCS_Full: {
+            BatteryIcon->SetBrushFromTexture(BatteryFullChargeIcon);
+            break;
+        }
+    }
+
+    return this;
+}
+
+void UHUDWidget::NativeTick(const FGeometry& Geometry, const float TimeDelta) {
     Super::NativeTick(Geometry, TimeDelta);
 
-    if (const APlayerController* Pc = GetOwningPlayer()) {
-        float MouseX, MouseY;
-        Pc->GetInputMouseDelta(MouseX, MouseY);
+    const auto TargetOffset = FVector2D(LastLookInput.X * -SwayIntensity, LastLookInput.Y * SwayIntensity);
+    CurrentSwayOffset       = FMath::Vector2DInterpTo(CurrentSwayOffset, TargetOffset, TimeDelta, SwaySmoothing);
 
-        const FVector2D TargetOffset = FVector2D(MouseX * -SwayIntensity, MouseY * SwayIntensity);
-        CurrentSwayOffset = FMath::Vector2DInterpTo(CurrentSwayOffset, TargetOffset, TimeDelta, SwaySmoothing);
-
-        if (CrosshairImage) {
-            if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(CrosshairImage->Slot)) {
+    auto UpdateSlotPos = [this](const UWidget* Image) {
+        if (Image) {
+            if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Image->Slot)) {
                 CanvasSlot->SetPosition(CurrentSwayOffset);
             }
         }
+    };
 
-        if (HitmarkerImage) {
-            if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(HitmarkerImage->Slot)) {
-                CanvasSlot->SetPosition(CurrentSwayOffset);
-            }
-        }
-
-        CurrentCrosshairOpacity = FMath::FInterpTo(CurrentCrosshairOpacity,
-                                                   TargetCrosshairOpacity,
-                                                   GetWorld()->GetDeltaSeconds(),
-                                                   10.0f);
-        CrosshairImage->SetOpacity(CurrentCrosshairOpacity);
-    }
+    UpdateSlotPos(WeaponCrosshairImage);
+    UpdateSlotPos(HitmarkerImage);
 
     if (HitmarkerTimer > 0.0f) {
         HitmarkerTimer -= TimeDelta;
 
-        float HitOpacity = FMath::Clamp(HitmarkerTimer / HitmarkerDuration, 0.0f, 1.0f);
+        const float HitOpacity = FMath::Clamp(HitmarkerTimer / HitmarkerDuration, 0.0f, 1.0f);
         HitmarkerImage->SetOpacity(HitOpacity);
 
         if (HitmarkerTimer <= 0.0f) {
             HitmarkerImage->SetOpacity(0.0f);
         }
     }
+}
+
+UHUDWidget* UHUDWidget::UpdateLastLookInput(const FVector2D& LookInput) {
+    LastLookInput = LookInput;
+    return this;
+}
+
+UHUDWidget* UHUDWidget::SetChargeIconBlink(const bool bBlink) {
+    if (bBlink) {
+        PlayAnimation(ChargeBlinkAnim, 0.f, 0, EUMGSequencePlayMode::Forward, 1.f);
+    } else {
+        StopAnimation(ChargeBlinkAnim);
+    }
+
+    return this;
 }

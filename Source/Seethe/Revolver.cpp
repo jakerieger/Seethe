@@ -127,7 +127,7 @@ bool ARevolver::PrimaryTrace(APlayerController* PC, FHitResult& OutResult) {
                                                            ECC_Visibility,
                                                            Params);
 
-    UGameUtils::DrawDebugLineTrace(GetWorld(), Hit, FColor::Cyan, 0.5f, 5.f);
+    FGameUtils::DrawDebugLineTrace(GetWorld(), Hit, FColor::Cyan, 0.5f, 5.f);
 
     if (bHit) {
         if (Hit.BoneName != NAME_None) {
@@ -171,7 +171,7 @@ bool ARevolver::PrimaryTrace(APlayerController* PC, FHitResult& OutResult) {
             }
 
             if (ImpactEnemyDecal) {
-                UGameUtils::SpawnDecalWithRandomRotation(GetWorld(), ImpactEnemyDecal, FVector(24.f, 24.f, 24.f), Hit);
+                FGameUtils::SpawnDecalWithRandomRotation(GetWorld(), ImpactEnemyDecal, FVector(24.f, 24.f, 24.f), Hit);
             }
 
             OutResult = Hit;
@@ -190,7 +190,7 @@ bool ARevolver::PrimaryTrace(APlayerController* PC, FHitResult& OutResult) {
         }
 
         if (ImpactDecal) {
-            UGameUtils::SpawnDecalWithRandomRotation(GetWorld(), ImpactDecal, FVector(8.f, 8.f, 8.f), Hit);
+            FGameUtils::SpawnDecalWithRandomRotation(GetWorld(), ImpactDecal, FVector(8.f, 8.f, 8.f), Hit);
         }
 
         return false;
@@ -238,7 +238,7 @@ void ARevolver::SecondaryTrace(const APlayerController* PC, const FHitResult& Ou
         QueryParams
         );
 
-    UGameUtils::DrawDebugLineTrace(GetWorld(), Hit, FColor::Green, 0.5f, 5.f);
+    FGameUtils::DrawDebugLineTrace(GetWorld(), Hit, FColor::Green, 0.5f, 5.f);
 
     if (bHit) {
         float HitDistance     = FVector::Dist(TraceStart, Hit.ImpactPoint);
@@ -248,7 +248,7 @@ void ARevolver::SecondaryTrace(const APlayerController* PC, const FHitResult& Ou
         FVector BaseDecalSize(100.f, 100.f, 100.f);
         FVector FinalSize = (BaseDecalSize * (1 - ScaleMultiplier)) + FVector(10.f);
 
-        UGameUtils::SpawnDecalWithRandomRotation(GetWorld(), BloodSpatterDecal, FinalSize, Hit);
+        FGameUtils::SpawnDecalWithRandomRotation(GetWorld(), BloodSpatterDecal, FinalSize, Hit);
     }
 }
 

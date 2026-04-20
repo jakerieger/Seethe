@@ -5,12 +5,8 @@
 #include "CoreMinimal.h"
 #include "DrawDebugHelpers.h"
 
-/**
- * A collection of general-purpose utilities
- */
-// ReSharper disable once CppUE4CodingStandardNamingViolationWarning
-class SEETHE_API UGameUtils {
-public:
+/** A collection of general-purpose utilities. **/
+struct SEETHE_API FGameUtils {
     static UDecalComponent* SpawnDecalWithRandomRotation(const UObject* WorldContextObject,
                                                          UMaterialInterface* DecalMaterial,
                                                          FVector DecalSize,
@@ -22,4 +18,6 @@ public:
                                    const FColor& LineColor = FColor::Cyan,
                                    float LineThickness     = 1.0f,
                                    float Lifetime          = 1.0f);
+
+    static void DebugPrintToScreen(const FString& Msg);
 };
