@@ -11,13 +11,14 @@
 #include "Camera/CameraComponent.h"
 #include "GameFramework/GameModeBase.h"
 
-#include "BaseWeapon.h"
-#include "WeaponPickup.h"
-#include "HUDBase.h"
-#include "HUDWidget.h"
-#include "Flashlight.h"
-#include "GameUtils.h"
 #include "Seethe.h"
+#include "Weapons/BaseWeapon.h"
+#include "Interactables/ItemPickupBase.h"
+#include "BaseEquipable.h"
+#include "Inventory/InventoryComponent.h"
+#include "UI/HUDBase.h"
+#include "UI/HUDWidget.h"
+#include "UI/InventoryWidget.h"
 
 ASeetheCharacter::ASeetheCharacter() {
     FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
@@ -34,55 +35,27 @@ ASeetheCharacter::ASeetheCharacter() {
     FirstPersonArms->SetOnlyOwnerSee(true);
     FirstPersonArms->FirstPersonPrimitiveType = EFirstPersonPrimitiveType::FirstPerson;
 
+    InventoryComponent = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
+
     GetCharacterMovement()->MaxWalkSpeed = 200.0f;
 }
 
 void ASeetheCharacter::BeginPlay() {
     Super::BeginPlay();
 
-    // Attach flashlight
-    if (FlashlightClass) {
-        FActorSpawnParameters SpawnParameters;
-        SpawnParameters.Owner      = this;
-        SpawnParameters.Instigator = GetInstigator();
-
-        AFlashlight* SpawnedFlashlight = GetWorld()->SpawnActor<AFlashlight>(
-            FlashlightClass,
-            {},
-            {},
-            SpawnParameters);
-
-        if (SpawnedFlashlight) {
-            Flashlight = SpawnedFlashlight;
-
-            FAttachmentTransformRules AttachRules(EAttachmentRule::SnapToTarget, true);
-            Flashlight->AttachToComponent(GetMesh1P(), AttachRules, FName("S_Attach"));
-            // Flashlight->SetActorRelativeTransform(FlashlightOffset);
-            Flashlight->SetOn(true);
-
-            if (UAnimInstance* AnimInst = GetMesh1P()->GetAnimInstance(); AnimInst && FlashlightAnimLayer) {
-                AnimInst->LinkAnimClassLayers(FlashlightAnimLayer);
-            }
-        }
-    }
-
     DefaultCameraLocation = FirstPersonCamera->GetRelativeLocation();
 
-    GetHUD()->UpdateHealth(GetHealthPercent())
-            ->UpdateBatteryChargeState(EBatteryChargeState::BCS_Full);
+    GetHUDWidget()->UpdateHealth(GetHealthPercent())
+                  ->UpdateBatteryChargeState(EBatteryChargeState::BCS_Dead);
+
+    GetInventoryWidget()->InitializeWidget(InventoryComponent);
 }
 
 void ASeetheCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason) {
     Super::EndPlay(EndPlayReason);
 }
 
-ABaseWeapon* ASeetheCharacter::GetCurrentWeapon() const { return CurrentWeapon; }
-
-AFlashlight* ASeetheCharacter::GetFlashlight() const {
-    return Flashlight;
-}
-
-void ASeetheCharacter::Move(const FInputActionValue& Value) {
+void ASeetheCharacter::OnMove(const FInputActionValue& Value) {
     const FVector2D MovementVector = Value.Get<FVector2D>();
     if (GetController()) {
         AddMovementInput(GetActorRightVector(), MovementVector.X);
@@ -90,7 +63,7 @@ void ASeetheCharacter::Move(const FInputActionValue& Value) {
     }
 }
 
-void ASeetheCharacter::Look(const FInputActionValue& Value) {
+void ASeetheCharacter::OnLook(const FInputActionValue& Value) {
     const FVector2D LookAxisVector = Value.Get<FVector2D>();
     if (GetController()) {
         AddControllerYawInput(LookAxisVector.X);
@@ -99,52 +72,76 @@ void ASeetheCharacter::Look(const FInputActionValue& Value) {
         LookAxisX = LookAxisVector.X;
         LookAxisY = LookAxisVector.Y;
 
-        GetHUD()->UpdateLastLookInput(LookAxisVector);
+        GetHUDWidget()->UpdateLastLookInput(LookAxisVector);
+        GetInventoryWidget()->UpdateLookAxes(LookAxisX, LookAxisY);
     }
 }
 
-void ASeetheCharacter::StopLook() {
-    GetHUD()->UpdateLastLookInput(FVector2D::ZeroVector);
+void ASeetheCharacter::OnStopLook() {
+    GetHUDWidget()->UpdateLastLookInput(FVector2D::ZeroVector);
 }
 
-void ASeetheCharacter::Attack(const FInputActionValue&) {
+void ASeetheCharacter::OnUse(const FInputActionValue&) {
+    if (IEquipableInterface* Equipable = GetEquipableInterface()) {
+        Equipable->Use(this);
+    }
+}
+
+void ASeetheCharacter::OnReload(const FInputActionValue&) {
     if (IWeaponInterface* Weapon = GetWeaponInterface()) {
-        APlayerController* PC = Cast<APlayerController>(GetController());
-        Weapon->Attack(PC, GetMesh1P());
+        Weapon->Reload(this);
     }
 }
 
-void ASeetheCharacter::Holster(const FInputActionValue&) {
-    DropWeapon();
+void ASeetheCharacter::OnShowInventory(const FInputActionValue&) {
+    if (bIsInventoryOpen) { return; }
 
-    // if (IWeaponInterface* Weapon = GetWeaponInterface()) {
-    //     APlayerController* PC = Cast<APlayerController>(GetController());
-    //     Weapon->ToggleHolster(PC, GetMesh1P());
-    // }
-}
+    APlayerController* PC = Cast<APlayerController>(GetController());
+    const AHUDBase* HUD   = Cast<AHUDBase>(PC->GetHUD());
 
-void ASeetheCharacter::Reload(const FInputActionValue&) {
-    if (IWeaponInterface* Weapon = GetWeaponInterface()) {
-        APlayerController* PC = Cast<APlayerController>(GetController());
-        Weapon->Reload(PC, GetMesh1P());
+    if (PC && HUD) {
+        bIsInventoryOpen = true;
+        HUD->ShowInventory();
+
+        PC->SetIgnoreLookInput(true);
+        PC->SetIgnoreMoveInput(true);
+        PC->SetShowMouseCursor(true);
+
+        FInputModeGameAndUI InputMode;
+        if (UUserWidget* InvWidget = HUD->InventoryWidget) {
+            InputMode.SetWidgetToFocus(InvWidget->TakeWidget());
+        }
+        InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockInFullscreen);
+        InputMode.SetHideCursorDuringCapture(false);
+        PC->SetInputMode(InputMode);
     }
 }
 
-void ASeetheCharacter::Inspect(const FInputActionValue&) {
-    if (IWeaponInterface* Weapon = GetWeaponInterface()) {
-        APlayerController* PC = Cast<APlayerController>(GetController());
-        Weapon->Inspect(PC, GetMesh1P());
+void ASeetheCharacter::OnHideInventory() {
+    if (!bIsInventoryOpen) {
+        return; // Prevent re-triggering if already closed
+    }
+
+    APlayerController* PC = Cast<APlayerController>(GetController());
+    const AHUDBase* HUD   = Cast<AHUDBase>(PC->GetHUD());
+
+    if (PC && HUD) {
+        bIsInventoryOpen = false;
+        HUD->HideInventory();
+
+        PC->ResetIgnoreLookInput();
+        PC->ResetIgnoreMoveInput();
+        PC->SetShowMouseCursor(false);
+
+        const FInputModeGameOnly InputMode;
+        PC->SetInputMode(InputMode);
     }
 }
 
-void ASeetheCharacter::Interact(const FInputActionValue&) {
+void ASeetheCharacter::OnInteract(const FInputActionValue&) {
     if (CurrentInteractable) {
         CurrentInteractable->Interact(this);
     }
-}
-
-void ASeetheCharacter::FlashlightPower(const FInputActionValue&) {
-    Flashlight->SetOn(!Flashlight->IsOn());
 }
 
 void ASeetheCharacter::Die() {
@@ -162,8 +159,8 @@ void ASeetheCharacter::Die() {
 void ASeetheCharacter::Tick(float DeltaTime) {
     Super::Tick(DeltaTime);
 
-    WeaponSway(DeltaTime);
-    WeaponAvoidClipping(DeltaTime);
+    EquipableSway(DeltaTime);
+    Mesh1PAvoidClipping(DeltaTime);
     CameraBob(DeltaTime);
 
     TraceForInteractables();
@@ -172,39 +169,55 @@ void ASeetheCharacter::Tick(float DeltaTime) {
 
 void ASeetheCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
     if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
-        EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Move);
-        EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Look);
-        EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Attack);
-        EnhancedInputComponent->BindAction(HolsterAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Holster);
-        EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Reload);
-        EnhancedInputComponent->BindAction(InspectAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Inspect);
-        EnhancedInputComponent->BindAction(InteractAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::Interact);
-        EnhancedInputComponent->BindAction(FlashlightPowerAction,
+        EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnMove);
+        EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnLook);
+        EnhancedInputComponent->BindAction(UseAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnUse);
+        EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnReload);
+        EnhancedInputComponent->BindAction(InteractAction,
                                            ETriggerEvent::Triggered,
                                            this,
-                                           &ASeetheCharacter::FlashlightPower);
+                                           &ASeetheCharacter::OnInteract);
+        EnhancedInputComponent->BindAction(InventoryAction,
+                                           ETriggerEvent::Started,
+                                           this,
+                                           &ASeetheCharacter::OnShowInventory);
 
-        EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Completed, this, &ASeetheCharacter::StopLook);
-        EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Canceled, this, &ASeetheCharacter::StopLook);
+        EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Completed, this, &ASeetheCharacter::OnStopLook);
+        EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Canceled, this, &ASeetheCharacter::OnStopLook);
+
+        EnhancedInputComponent->BindAction(InventoryAction,
+                                           ETriggerEvent::Completed,
+                                           this,
+                                           &ASeetheCharacter::OnHideInventory);
+        EnhancedInputComponent->BindAction(InventoryAction,
+                                           ETriggerEvent::Canceled,
+                                           this,
+                                           &ASeetheCharacter::OnHideInventory);
     }
 }
 
 USkeletalMeshComponent* ASeetheCharacter::GetMesh1P() const { return FirstPersonArms; }
 UCameraComponent* ASeetheCharacter::GetCamera1P() const { return FirstPersonCamera; }
-IWeaponInterface* ASeetheCharacter::GetWeaponInterface() const { return Cast<IWeaponInterface>(CurrentWeapon); }
+UInventoryComponent* ASeetheCharacter::GetInventory() { return InventoryComponent; }
+ABaseEquipable* ASeetheCharacter::GetCurrentEquipable() { return CurrentEquipable; }
+ABaseWeapon* ASeetheCharacter::GetCurrentWeapon() { return Cast<ABaseWeapon>(CurrentEquipable); }
 
-bool ASeetheCharacter::HasWeapon() const {
-    return CurrentWeapon != nullptr;
-}
+float ASeetheCharacter::GetHealthPercent() const { return CurrentHealth / 100.f; }
 
-float ASeetheCharacter::GetHealthPercent() const {
-    return CurrentHealth / 100.f;
-}
-
-UHUDWidget* ASeetheCharacter::GetHUD() const {
+UHUDWidget* ASeetheCharacter::GetHUDWidget() const {
     if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
         if (AHUDBase* HUD = Cast<AHUDBase>(PC->GetHUD())) {
             return HUD->HUDWidget;
+        }
+    }
+
+    return nullptr;
+}
+
+UInventoryWidget* ASeetheCharacter::GetInventoryWidget() const {
+    if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
+        if (AHUDBase* HUD = Cast<AHUDBase>(PC->GetHUD())) {
+            return HUD->InventoryWidget;
         }
     }
 
@@ -218,7 +231,7 @@ float ASeetheCharacter::TakeDamage(const float DamageAmount,
     const float DamageToApply = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
     CurrentHealth -= FMath::Floor(DamageToApply);
-    GetHUD()->UpdateHealth(CurrentHealth / 100.f);
+    GetHUDWidget()->UpdateHealth(CurrentHealth / 100.f);
 
     if (CurrentHealth <= 0) {
         Die();
@@ -227,75 +240,79 @@ float ASeetheCharacter::TakeDamage(const float DamageAmount,
     return DamageToApply;
 }
 
-void ASeetheCharacter::EquipWeapon(const TSubclassOf<AWeaponPickup>& PickupClass,
-                                   const TSubclassOf<ABaseWeapon>& WeaponClass) {
-    if (CurrentWeapon) {
-        DropWeapon();
-    }
-
-    FActorSpawnParameters SpawnInfo;
-    SpawnInfo.Owner        = this;
-    SpawnInfo.Instigator   = GetInstigator();
-    ABaseWeapon* NewWeapon = GetWorld()->SpawnActor<ABaseWeapon>(WeaponClass,
-                                                                 GetActorLocation(),
-                                                                 GetActorRotation(),
-                                                                 SpawnInfo);
-    if (NewWeapon) {
-        CurrentWeapon         = NewWeapon;
-        CurrentWeaponClass    = WeaponClass;
-        LastWeaponPickupClass = PickupClass;
-
-        APlayerController* PC = Cast<APlayerController>(GetController());
-        CurrentWeapon->Equip(PC, GetMesh1P());
-
-        GetHUD()->SetWeaponCrosshairTexture(CurrentWeapon->GetCrosshairTexture())
-                ->ShowWeaponCrosshair();
-    }
-}
-
-void ASeetheCharacter::DropWeapon() {
-    if (!CurrentWeapon || !CurrentWeaponClass || !LastWeaponPickupClass) {
+void ASeetheCharacter::Equip(const UInventoryItemEquipable* Item) {
+    if (CurrentEquipable) {
         return;
     }
 
-    const FVector DropLocation = FirstPersonArms->GetSocketLocation(FName("S_Attach")) + (
-                                     GetActorForwardVector() * 100.0f);
-    AWeaponPickup* DroppedWeapon = GetWorld()->SpawnActor<AWeaponPickup>(
-        LastWeaponPickupClass,
-        DropLocation,
-        FRotator::ZeroRotator);
-    DroppedWeapon->PickupMesh->AddImpulse(FirstPersonCamera->GetForwardVector() * 500.0f);
+    FActorSpawnParameters SpawnInfo;
+    SpawnInfo.Owner      = this;
+    SpawnInfo.Instigator = GetInstigator();
 
-    if (DroppedWeapon) {
-        DroppedWeapon->WeaponClass = CurrentWeaponClass;
+    ABaseEquipable* NewEquipable = GetWorld()->SpawnActor<ABaseEquipable>(
+        Item->EquipableClass,
+        GetActorLocation(),
+        GetActorRotation(),
+        SpawnInfo);
+
+    if (NewEquipable) {
+        CurrentEquipable = NewEquipable;
+        CurrentEquipable->Equip(this);
+        LastPickupClass = Item->PickupClass;
+        if (CurrentEquipable->CrosshairTexture) {
+            GetHUDWidget()->SetCrosshairTexture(CurrentEquipable->CrosshairTexture)
+                          ->ShowCrosshair();
+        }
     }
-
-    CurrentWeapon->Drop(GetMesh1P());
-    CurrentWeapon->Destroy();
-    CurrentWeapon         = nullptr;
-    CurrentWeaponClass    = nullptr;
-    LastWeaponPickupClass = nullptr;
-
-    if (UAnimInstance* AnimInst = GetMesh1P()->GetAnimInstance(); AnimInst && FlashlightAnimLayer) {
-        AnimInst->LinkAnimClassLayers(FlashlightAnimLayer);
-    }
-
-    GetHUD()->HideWeaponCrosshair();
 }
 
-void ASeetheCharacter::WeaponSway(const float DeltaTime) {
+void ASeetheCharacter::Drop() {
+    if (!CurrentEquipable) { return; }
+
+    const FVector DropLocation = GetMesh1P()->GetSocketLocation(FName("S_Attach")) + (GetActorForwardVector() * 100.f);
+
+    const AItemPickupBase* DroppedItem = GetWorld()->SpawnActor<AItemPickupBase>(
+        LastPickupClass,
+        DropLocation,
+        FRotator::ZeroRotator);
+
+    if (DroppedItem) {
+        DroppedItem->GetMesh()->AddImpulse(FirstPersonCamera->GetForwardVector() * 500.f);
+    }
+
+    CurrentEquipable->Drop(this);
+    CurrentEquipable->Destroy();
+    CurrentEquipable = nullptr;
+
+    GetHUDWidget()->HideWeaponCrosshair();
+}
+
+void ASeetheCharacter::UseItem(const int32 Index, const bool bShouldConsume) {
+    if (Index < 0) { return; }
+    GetInventory()->UseItem(Index, bShouldConsume);
+}
+
+IEquipableInterface* ASeetheCharacter::GetEquipableInterface() const {
+    return Cast<IEquipableInterface>(CurrentEquipable);
+}
+
+IWeaponInterface* ASeetheCharacter::GetWeaponInterface() const {
+    return Cast<IWeaponInterface>(CurrentEquipable);
+}
+
+void ASeetheCharacter::EquipableSway(const float DeltaTime) {
     FRotator TargetSway;
     TargetSway.Pitch = FMath::Clamp(LookAxisY * SwayAmount, -MaxSway, MaxSway);
     TargetSway.Yaw   = FMath::Clamp(LookAxisX * SwayAmount, -MaxSway, MaxSway);
-    TargetSway.Roll  = TargetSway.Yaw * 0.5f;
+    TargetSway.Roll  = TargetSway.Yaw * 0.4f;
 
-    WeaponSwayRotation = FMath::RInterpTo(WeaponSwayRotation, TargetSway, DeltaTime, SwaySmoothing);
+    EquipSwayRotation = FMath::RInterpTo(EquipSwayRotation, TargetSway, DeltaTime, SwaySmoothing);
 
     LookAxisX = FMath::FInterpTo(LookAxisX, 0.f, DeltaTime, 10.0f);
     LookAxisY = FMath::FInterpTo(LookAxisY, 0.f, DeltaTime, 10.0f);
 }
 
-void ASeetheCharacter::WeaponAvoidClipping(const float DeltaTime) {
+void ASeetheCharacter::Mesh1PAvoidClipping(const float DeltaTime) {
     FHitResult WallHit;
     const FVector Start = FirstPersonCamera->GetComponentLocation();
     const FVector End   = Start + (FirstPersonCamera->GetForwardVector() * 100.0f);
@@ -312,10 +329,10 @@ void ASeetheCharacter::WeaponAvoidClipping(const float DeltaTime) {
                                                        FCollisionShape::MakeSphere(10.f),
                                                        Params);
     const float TargetDisplacement = bHit ? (End - WallHit.Location).Size() : 0.0f;
-    WeaponDrawbackDisplacement     = FMath::FInterpTo(WeaponDrawbackDisplacement,
-                                                  TargetDisplacement,
-                                                  DeltaTime,
-                                                  DrawbackSpeed);
+    DrawbackDisplacement           = FMath::FInterpTo(DrawbackDisplacement,
+                                            TargetDisplacement,
+                                            DeltaTime,
+                                            DrawbackSpeed);
 }
 
 void ASeetheCharacter::CameraBob(float DeltaTime) {
@@ -356,8 +373,7 @@ void ASeetheCharacter::TraceForInteractables() {
                 CurrentInteractable = Hit.GetActor();
                 CurrentInteractable->LookAt();
 
-                GetHUD()->ShowInteractText(CurrentInteractable->GetInteractMessage())
-                        ->SetCrosshairColor(FColor::Yellow);
+                GetHUDWidget()->SetCrosshairColor(FColor::Yellow);
             }
             return;
         }
@@ -367,8 +383,7 @@ void ASeetheCharacter::TraceForInteractables() {
         CurrentInteractable->LookAway();
         CurrentInteractable = nullptr;
 
-        GetHUD()->HideInteractText()
-                ->SetCrosshairColor(FColor::White);
+        GetHUDWidget()->SetCrosshairColor(FColor::White);
     }
 }
 
@@ -385,5 +400,5 @@ void ASeetheCharacter::TraceForEnemies() const {
                                                            ECC_ENEMY,
                                                            Params);
 
-    GetHUD()->SetCrosshairColor(bHit && Hit.GetActor() ? FColor::Red : FColor::White);
+    GetHUDWidget()->SetCrosshairColor(bHit && Hit.GetActor() ? FColor::Red : FColor::White);
 }

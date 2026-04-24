@@ -17,8 +17,7 @@ public:
     virtual void Tick(float DeltaSeconds) override;
 
     /** ABaseWeapon overrides **/
-    virtual void Attack(APlayerController* PC, USkeletalMeshComponent* Arms) override;
-    virtual EWeaponType GetWeaponType() override;
+    virtual void Attack(ASeetheCharacter* Character) override;
 
     /* Attack frames are notifies in montage, this is what the notify uses to update whether attack frames are active */
     virtual void SetHitDetectionActive(bool bActive) override;

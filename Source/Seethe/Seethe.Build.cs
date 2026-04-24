@@ -9,7 +9,12 @@ public class Seethe : ModuleRules
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		PublicDependencyModuleNames.AddRange([
-			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "Slate", "SlateCore", "Niagara"
+			"Core", "CoreUObject", "Engine", "InputCore", "EnhancedInput", "UMG", "Niagara"
+		]);
+
+		PublicIncludePaths.AddRange([
+			"Seethe/Interfaces", "Seethe/Inventory", "Seethe/UI", "Seethe/Weapons", "Seethe/Enemies", "Seethe/Tools",
+			"Seethe/Interactables"
 		]);
 
 		// Uncomment this if you want to visualize line traces
@@ -18,7 +23,7 @@ public class Seethe : ModuleRules
 		PrivateDependencyModuleNames.AddRange(new string[] { });
 
 		// Uncomment if you are using Slate UI
-		// PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
 
 		// Uncomment if you are using online features
 		// PrivateDependencyModuleNames.Add("OnlineSubsystem");

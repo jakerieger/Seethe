@@ -3,17 +3,18 @@
 
 #include "Flashlight.h"
 #include "SeetheCharacter.h"
-#include "HUDWidget.h"
+#include "UI/HUDWidget.h"
 #include "Components/SpotLightComponent.h"
 
 AFlashlight::AFlashlight() {
-    MeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>("MeshComponent");
-    RootComponent = MeshComponent;
-
     LightComponent = CreateDefaultSubobject<USpotLightComponent>("LightComponent");
-    LightComponent->SetupAttachment(MeshComponent);
+    LightComponent->SetupAttachment(GetRootComponent());
     LightComponent->SetIntensityUnits(ELightUnits::Lumens);
-    LightComponent->SetVisibility(true);
+    LightComponent->SetVisibility(false);
+}
+
+void AFlashlight::Use(ASeetheCharacter* Character) {
+    SetOn(!IsOn());
 }
 
 void AFlashlight::SetOn(const bool bShouldBeOn) const {
@@ -40,12 +41,25 @@ bool AFlashlight::IsDead() const {
 }
 
 void AFlashlight::Recharge(const float Amount) {
+    const ASeetheCharacter* PC = Cast<ASeetheCharacter>(GetOwner());
+    if (!PC) { return; }
+
     BatteryLife += Amount;
     if (BatteryLife > 100.0f) {
         BatteryLife = 100.0f;
     }
+
+    if (BatteryLife <= 33.0f) {
+        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Low);
+    } else if (BatteryLife <= 67.0f) {
+        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Mid);
+    } else {
+        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Full);
+    }
+
     if (BatteryLife < 0.0f) {
         BatteryLife = 0.0f;
+        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Dead);
     }
 }
 
@@ -70,24 +84,29 @@ void AFlashlight::UpdateBatteryLife() {
             BatteryLife -= BatteryDrainRate;
 
             if (BatteryLife <= 33.0f) {
-                PC->GetHUD()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Low);
+                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Low);
             } else if (BatteryLife <= 67.0f) {
-                PC->GetHUD()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Mid);
+                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Mid);
             } else {
-                PC->GetHUD()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Full);
+                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Full);
             }
         } else {
             BatteryLife = 0.0f;
             SetOn(false);
-            PC->GetHUD()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Dead);
+            PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Dead);
         }
     }
 }
 
 void AFlashlight::OnPowerMontageEnded(UAnimMontage*, bool, const bool bFlashlightOn) const {
+    const ASeetheCharacter* PC = Cast<ASeetheCharacter>(GetOwner());
+    if (!PC) { return; }
+
     if (bFlashlightOn && !IsDead()) {
         LightComponent->SetVisibility(true);
+        PC->GetHUDWidget()->SetChargeIconColor(FColor::Green);
     } else {
         LightComponent->SetVisibility(false);
+        PC->GetHUDWidget()->SetChargeIconColor({255, 255, 255, 100});
     }
 }

@@ -3,17 +3,24 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/Character.h"
-#include "InteractableInterface.h"
+#include "InventoryItem.h"
 #include "WeaponInterface.h"
+#include "GameFramework/Character.h"
+#include "Interfaces/EquipableInterface.h"
+#include "Interfaces/InteractableInterface.h"
 #include "SeetheCharacter.generated.h"
 
-class UInputAction;
+class ABaseEquipable;
+class AItemPickupBase;
 class ABaseWeapon;
-class AWeaponPickup;
+
+class UInputAction;
 class UCameraComponent;
-class AFlashlight;
 class UHUDWidget;
+class UInventoryComponent;
+class UInventoryWidget;
+class UInventoryItemData;
+
 struct FInputActionValue;
 
 UCLASS()
@@ -25,6 +32,9 @@ class SEETHE_API ASeetheCharacter : public ACharacter {
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<USkeletalMeshComponent> FirstPersonArms;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<UInventoryComponent> InventoryComponent;
 
 public:
     ASeetheCharacter();
@@ -41,34 +51,22 @@ protected:
     TObjectPtr<UInputAction> LookAction;
 
     UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> AttackAction;
-
-    UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> HolsterAction;
+    TObjectPtr<UInputAction> UseAction;
 
     UPROPERTY(EditAnywhere, Category = "Input")
     TObjectPtr<UInputAction> ReloadAction;
 
     UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> InspectAction;
+    TObjectPtr<UInputAction> InventoryAction;
 
     UPROPERTY(EditAnywhere, Category = "Input")
     TObjectPtr<UInputAction> InteractAction;
-
-    UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> FlashlightPowerAction;
-
-    UPROPERTY(EditAnywhere, Category="Flashlight")
-    TSubclassOf<AFlashlight> FlashlightClass;
-
-    UPROPERTY(EditAnywhere, Category="Flashlight")
-    TSubclassOf<UAnimInstance> FlashlightAnimLayer;
 
     UPROPERTY(EditAnywhere, Category = "Weapon")
     float DrawbackSpeed = 15.0f;
 
     UPROPERTY(BlueprintReadOnly, Category = "Weapon")
-    float WeaponDrawbackDisplacement;
+    float DrawbackDisplacement;
 
     UPROPERTY(EditAnywhere, Category = "Sway")
     float SwayAmount = 1.5f;
@@ -80,17 +78,15 @@ protected:
     float SwaySmoothing = 10.0f;
 
     UPROPERTY(BlueprintReadOnly, Category = "Sway")
-    FRotator WeaponSwayRotation;
+    FRotator EquipSwayRotation;
 
     /** Input methods **/
-    void Move(const FInputActionValue& Value);
-    void Look(const FInputActionValue& Value);
-    void Attack(const FInputActionValue& Value);
-    void Holster(const FInputActionValue& Value);
-    void Reload(const FInputActionValue& Value);
-    void Inspect(const FInputActionValue& Value);
-    void Interact(const FInputActionValue& Value);
-    void FlashlightPower(const FInputActionValue& Value);
+    void OnMove(const FInputActionValue& Value);
+    void OnLook(const FInputActionValue& Value);
+    void OnUse(const FInputActionValue& Value);
+    void OnReload(const FInputActionValue& Value);
+    void OnShowInventory(const FInputActionValue& Value);
+    void OnInteract(const FInputActionValue& Value);
 
     void Die();
 
@@ -105,29 +101,31 @@ public:
     UFUNCTION(BlueprintCallable, Category = "First Person")
     UCameraComponent* GetCamera1P() const;
 
-    UFUNCTION(BlueprintCallable, Category = "Weapon")
-    ABaseWeapon* GetCurrentWeapon() const;
+    UFUNCTION(BlueprintCallable, Category="Inventory")
+    UInventoryComponent* GetInventory();
 
-    UFUNCTION(BlueprintCallable, Category = "Flashlight")
-    AFlashlight* GetFlashlight() const;
-
-    UFUNCTION(BlueprintPure, Category = "Weapon")
-    bool HasWeapon() const;
+    ABaseEquipable* GetCurrentEquipable();
+    ABaseWeapon* GetCurrentWeapon();
 
     UFUNCTION(BlueprintPure, Category = "Health")
     float GetHealthPercent() const;
 
     UFUNCTION(BlueprintPure, Category = "HUD")
-    UHUDWidget* GetHUD() const;
+    UHUDWidget* GetHUDWidget() const;
+
+    UFUNCTION(BlueprintPure, Category = "HUD")
+    UInventoryWidget* GetInventoryWidget() const;
 
     virtual float TakeDamage(float DamageAmount,
                              const FDamageEvent& DamageEvent,
                              AController* EventInstigator,
                              AActor* DamageCauser) override;
 
-    void EquipWeapon(const TSubclassOf<AWeaponPickup>& PickupClass,
-                     const TSubclassOf<ABaseWeapon>& WeaponClass);
-    void DropWeapon();
+    void Equip(const UInventoryItemEquipable* Item);
+    void Drop();
+
+    UFUNCTION(BlueprintCallable, Category = "Inventory")
+    void UseItem(int32 Index, bool bShouldConsume);
 
 private:
     float BobAmplitude = 2.0f;
@@ -138,30 +136,30 @@ private:
     float InteractRange    = 300.0f;
     float EnemyDetectRange = 1200.0f;
     float LookAxisX        = 0, LookAxisY = 0;
-    FTransform FlashlightOffset;
+    FTransform EquipableOffset;
+    bool bIsInventoryOpen = false;
 
     UPROPERTY()
-    TObjectPtr<AFlashlight> Flashlight;
+    TObjectPtr<ABaseEquipable> CurrentEquipable;
 
     UPROPERTY()
-    TObjectPtr<ABaseWeapon> CurrentWeapon;
-
-    UPROPERTY()
-    TSubclassOf<ABaseWeapon> CurrentWeaponClass;
-
-    UPROPERTY()
-    TSubclassOf<AWeaponPickup> LastWeaponPickupClass;
+    TSubclassOf<AItemPickupBase> LastPickupClass;
 
     UPROPERTY()
     TScriptInterface<IInteractableInterface> CurrentInteractable;
 
+    IEquipableInterface* GetEquipableInterface() const;
     IWeaponInterface* GetWeaponInterface() const;
-    void WeaponSway(float DeltaTime);
-    void WeaponAvoidClipping(float DeltaTime);
+
+    void EquipableSway(float DeltaTime);
+    void Mesh1PAvoidClipping(float DeltaTime);
     void CameraBob(float DeltaTime);
     void TraceForInteractables();
     void TraceForEnemies() const;
 
     UFUNCTION()
-    void StopLook();
+    void OnStopLook();
+
+    UFUNCTION()
+    void OnHideInventory();
 };

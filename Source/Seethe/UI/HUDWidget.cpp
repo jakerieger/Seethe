@@ -20,12 +20,12 @@ UHUDWidget* UHUDWidget::UpdateHealth(const float HealthPercentage) {
     return this;
 }
 
-UHUDWidget* UHUDWidget::SetWeaponCrosshairTexture(UTexture2D* CrosshairTexture) {
+UHUDWidget* UHUDWidget::SetCrosshairTexture(UTexture2D* CrosshairTexture) {
     if (CrosshairTexture) { WeaponCrosshairImage->SetBrushFromTexture(CrosshairTexture); }
     return this;
 }
 
-UHUDWidget* UHUDWidget::ShowWeaponCrosshair() {
+UHUDWidget* UHUDWidget::ShowCrosshair() {
     WeaponCrosshairImage->SetVisibility(ESlateVisibility::Visible);
     return this;
 }
@@ -40,17 +40,6 @@ UHUDWidget* UHUDWidget::TriggerHitmarker() {
         HitmarkerTimer = HitmarkerDuration;
         HitmarkerImage->SetOpacity(1.0f);
     }
-    return this;
-}
-
-UHUDWidget* UHUDWidget::ShowInteractText(const FString& Text) {
-    InteractText->SetVisibility(ESlateVisibility::Visible);
-    InteractText->SetText(FText::FromString(Text));
-    return this;
-}
-
-UHUDWidget* UHUDWidget::HideInteractText() {
-    InteractText->SetVisibility(ESlateVisibility::Hidden);
     return this;
 }
 
@@ -82,6 +71,11 @@ UHUDWidget* UHUDWidget::UpdateBatteryChargeState(const EBatteryChargeState State
         }
     }
 
+    return this;
+}
+
+UHUDWidget* UHUDWidget::SetChargeIconColor(const FColor& Color) {
+    ChargeIcon->SetColorAndOpacity(Color);
     return this;
 }
 

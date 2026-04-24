@@ -51,9 +51,6 @@ public:
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UImage> BatteryIcon;
 
-    UPROPERTY(meta = (BindWidget))
-    TObjectPtr<UTextBlock> InteractText;
-
     UPROPERTY(EditAnywhere, Category = "HUD")
     TObjectPtr<UTexture2D> BatteryDeadIcon;
 
@@ -75,10 +72,10 @@ public:
     UHUDWidget* UpdateHealth(float HealthPercentage);
 
     UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* SetWeaponCrosshairTexture(UTexture2D* CrosshairTexture);
+    UHUDWidget* SetCrosshairTexture(UTexture2D* CrosshairTexture);
 
     UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* ShowWeaponCrosshair();
+    UHUDWidget* ShowCrosshair();
 
     UFUNCTION(BlueprintCallable, Category="HUD")
     UHUDWidget* HideWeaponCrosshair();
@@ -87,16 +84,13 @@ public:
     UHUDWidget* TriggerHitmarker();
 
     UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* ShowInteractText(const FString& Text);
-
-    UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* HideInteractText();
-
-    UFUNCTION(BlueprintCallable, Category="HUD")
     UHUDWidget* SetCrosshairColor(const FColor& Color);
 
     UFUNCTION(BlueprintCallable, Category="HUD")
     UHUDWidget* UpdateBatteryChargeState(EBatteryChargeState State);
+
+    UFUNCTION(BlueprintCallable, Category="HUD")
+    UHUDWidget* SetChargeIconColor(const FColor& Color);
 
 private:
     UPROPERTY(EditAnywhere, Category = "Sway")

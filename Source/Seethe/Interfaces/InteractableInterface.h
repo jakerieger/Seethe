@@ -18,5 +18,5 @@ public:
     virtual void Interact(class ASeetheCharacter* Character) = 0;
     virtual void LookAt() = 0;
     virtual void LookAway() = 0;
-    virtual FString GetInteractMessage() = 0;
+    virtual FText GetInteractMessage() = 0;
 };

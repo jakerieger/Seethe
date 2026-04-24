@@ -3,23 +3,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "BaseEquipable.h"
 #include "GameFramework/Actor.h"
 #include "Flashlight.generated.h"
 
 class USpotLightComponent;
 
 UCLASS()
-class SEETHE_API AFlashlight : public AActor {
+class SEETHE_API AFlashlight : public ABaseEquipable {
     GENERATED_BODY()
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-    TObjectPtr<USkeletalMeshComponent> MeshComponent;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<USpotLightComponent> LightComponent;
 
 public:
     AFlashlight();
+
+    virtual void Use(ASeetheCharacter* Character) override;
 
     UFUNCTION(BlueprintCallable, Category="Flashlight")
     void SetOn(bool bShouldBeOn) const;
@@ -44,8 +44,9 @@ public:
     TObjectPtr<UAnimMontage> PowerMontage;
 
 private:
-    float BatteryLife{100.0f};
-    float BatteryDrainRate{0.2f};
+    float BatteryLife{33.3f};
+    /** Battery life is 5 minutes. This value represents how much to drain the battery EACH SECOND. **/
+    float BatteryDrainRate{0.333333f};
 
     UFUNCTION()
     void OnPowerMontageEnded(UAnimMontage* Montage, bool bInterrupted, bool bFlashlightOn) const;

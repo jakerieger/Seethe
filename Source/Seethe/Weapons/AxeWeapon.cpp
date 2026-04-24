@@ -2,9 +2,9 @@
 
 
 #include "AxeWeapon.h"
-#include "SeetheCharacter.h"
-#include "GameUtils.h"
-#include "HUDWidget.h"
+#include "../SeetheCharacter.h"
+#include "../GameUtils.h"
+#include "../UI/HUDWidget.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
@@ -13,8 +13,8 @@ AAxeWeapon::AAxeWeapon() {
     PrimaryActorTick.bCanEverTick = true;
 }
 
-void AAxeWeapon::Attack(APlayerController* PC, USkeletalMeshComponent* Arms) {
-    if (bIsAttacking || SwingMontages.IsEmpty()) {
+void AAxeWeapon::Attack(ASeetheCharacter* Character) {
+    if (bIsAttacking || SwingMontages.IsEmpty() || !Character) {
         return;
     }
 
@@ -26,27 +26,19 @@ void AAxeWeapon::Attack(APlayerController* PC, USkeletalMeshComponent* Arms) {
         SelectedMontage = SwingMontages[MontageIndex];
     }
 
-    UAnimInstance* AnimInstance = Arms->GetAnimInstance();
+    UAnimInstance* AnimInstance = Character->GetMesh1P()->GetAnimInstance();
     AnimInstance->Montage_Play(SelectedMontage);
-
-    if (AttackWeaponMontage) {
-        WeaponMesh->GetAnimInstance()->Montage_Play(AttackWeaponMontage);
-    }
 
     if (AttackSound) {
         UGameplayStatics::PlaySoundAtLocation(this, AttackSound, GetActorLocation());
     }
 }
 
-EWeaponType AAxeWeapon::GetWeaponType() {
-    return EWeaponType::Axe;
-}
-
 void AAxeWeapon::Tick(const float DeltaSeconds) {
     Super::Tick(DeltaSeconds);
 
     if (bIsAttacking) {
-        const FVector CurrentSocketLocation = GetWeaponMesh()->GetSocketLocation(HitSocketName);
+        const FVector CurrentSocketLocation = GetMesh1P()->GetSocketLocation(HitSocketName);
 
         if (!LastSocketLocation.IsZero()) {
             PerformTrace(LastSocketLocation, CurrentSocketLocation);
@@ -63,7 +55,7 @@ void AAxeWeapon::SetHitDetectionActive(const bool bActive) {
 void AAxeWeapon::PerformTrace(const FVector& Start, const FVector& End) {
     const FVector BladeHalfSize = FVector(5.f, 20.f, 5.f);
     FHitResult Hit;
-    const FQuat TraceRotation = WeaponMesh->GetSocketQuaternion(HitSocketName);
+    const FQuat TraceRotation = GetMesh1P()->GetSocketQuaternion(HitSocketName);
 
     const bool bHit = UKismetSystemLibrary::BoxTraceSingle(GetWorld(),
                                                            Start,
@@ -128,7 +120,7 @@ void AAxeWeapon::OnHit(const FHitResult& HitResult) {
                                   nullptr);
 
     if (const ASeetheCharacter* Character = Cast<ASeetheCharacter>(GetOwner())) {
-        if (auto* HUD = Character->GetHUD()) {
+        if (auto* HUD = Character->GetHUDWidget()) {
             HUD->TriggerHitmarker();
         }
     }

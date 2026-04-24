@@ -7,6 +7,7 @@
 #include "HUDBase.generated.h"
 
 class UHUDWidget;
+class UInventoryWidget;
 
 UCLASS()
 class SEETHE_API AHUDBase : public AHUD {
@@ -16,8 +17,17 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="HUD")
     TSubclassOf<UUserWidget> HUDWidgetClass;
 
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="HUD")
+    TSubclassOf<UUserWidget> InventoryWidgetClass;
+
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HUD")
     TObjectPtr<UHUDWidget> HUDWidget;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "HUD")
+    TObjectPtr<UInventoryWidget> InventoryWidget;
+
+    void ShowInventory() const;
+    void HideInventory() const;
 
 protected:
     virtual void BeginPlay() override;
