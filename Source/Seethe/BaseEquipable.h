@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "../Interfaces/EquipableInterface.h"
+#include "Seethe/Interfaces/EquipableInterface.h"
 #include "BaseEquipable.generated.h"
 
 UCLASS()

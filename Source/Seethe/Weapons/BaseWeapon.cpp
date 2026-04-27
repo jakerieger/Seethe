@@ -2,7 +2,7 @@
 
 
 #include "BaseWeapon.h"
-#include "../SeetheCharacter.h"
+#include "Seethe/SeetheCharacter.h"
 
 ABaseWeapon::ABaseWeapon() {
     PrimaryActorTick.bCanEverTick = false;

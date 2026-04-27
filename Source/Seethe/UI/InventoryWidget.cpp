@@ -3,79 +3,123 @@
 
 #include "InventoryWidget.h"
 
-#include "../Inventory/InventoryItem.h"
-#include "../Inventory/InventoryComponent.h"
-#include "Components/CanvasPanelSlot.h"
+#include "HUDBase.h"
+#include "InputActionValue.h"
+#include "InventoryItem3dPreview.h"
 #include "Components/UniformGridSlot.h"
+#include "Components/Button.h"
+#include "Seethe/SeetheCharacter.h"
+#include "Seethe/Inventory/InventoryItem.h"
+#include "Seethe/Inventory/InventoryComponent.h"
 
 void UInventoryWidget::UpdateLookAxes(const float X, const float Y) {
     LookX = X;
     LookY = Y;
 }
 
-int32 UInventoryWidget::GetInventoryIndex() const {
-    if (!LinkedInventory) { return -1; }
-
-    const int32 NumItems = Items.Num();
-
-    if (NumItems <= 0) {
-        return -1;
+void FInventoryWidgetCategory::UnselectAll() {
+    for (const auto& Widget : Widgets) {
+        Widget->SetSelected(false);
     }
+}
 
-    // 1. Get Angle (-180 to 180)
-    float LookDegrees = FMath::RadiansToDegrees(FMath::Atan2(LookY, LookX));
-
-    // 2. Offset by -90 so Index 0 starts at Top (North)
-    LookDegrees -= 90.f;
-
-    // 3. Normalize to 0-360 range
-    // FMath::Fmod with negative numbers can be tricky, 
-    // so this is the safest way to wrap it:
-    while (LookDegrees < 0.f) {
-        LookDegrees += 360.f;
+void FInventoryWidgetCategory::SetSelected(const int32 Index, const bool bSelected) {
+    if (Widgets.IsValidIndex(Index)) {
+        Widgets[Index]->SetSelected(bSelected);
     }
-    while (LookDegrees >= 360.f) {
-        LookDegrees -= 360.f;
-    }
-
-    // 4. Calculate Index
-    const float DegreesPerSlot = 360.f / static_cast<float>(NumItems);
-    const int32 SelectedIndex  = FMath::FloorToInt(LookDegrees / DegreesPerSlot);
-
-    // Final safety clamp
-    return FMath::Clamp(SelectedIndex, 0, NumItems - 1);
 }
 
 UInventoryComponent* UInventoryWidget::GetInventoryComponent() {
     return LinkedInventory;
 }
 
-TArray<FInventorySlot> UInventoryWidget::GetInventoryItems() {
-    return Items;
+TArray<FInventorySlot>& UInventoryWidget::GetInventoryCategoryItems(const EInventoryCategory& Category) const {
+    return LinkedInventory->GetSlots(Category);
 }
 
 void UInventoryWidget::OnInventoryUpdate() {
     if (!LinkedInventory || !SlotWidgetClass) { return; }
-    Items.Reset();
-    Items = LinkedInventory->InventoryItems;
 
-    ItemContainer->ClearChildren();
+    for (auto i = 0; i < static_cast<int32>(EInventoryCategory::NUM_CATEGORIES); i++) {
+        EInventoryCategory Category = static_cast<EInventoryCategory>(i);
+        auto& Slots                 = GetInventoryCategoryItems(Category);
 
-    constexpr int32 kColumns = 3;
-
-    for (int32 i = 0; i < Items.Num(); i++) {
-        UInventorySlotWidget* NewSlot = CreateWidget<UInventorySlotWidget>(this, SlotWidgetClass);
-        if (NewSlot) {
-            NewSlot->SetupSlot(Items[i], i);
-            UUniformGridSlot* GridSlot = ItemContainer->AddChildToUniformGrid(NewSlot);
-            if (GridSlot) {
-                const int32 Row = i / kColumns;
-                const int32 Col = i % kColumns;
-                GridSlot->SetRow(Row);
-                GridSlot->SetColumn(Col);
+        for (auto k = 0; k < kInventorySize; k++) {
+            auto& CurrentSlot             = Slots[k];
+            auto* InventoryWidgetCategory = SlotWidgets.Find(Category);
+            if (InventoryWidgetCategory) {
+                if (CurrentSlot.ItemData && CurrentSlot.Quantity > 0) {
+                    InventoryWidgetCategory->Widgets[k]->SetupSlot(CurrentSlot, k);
+                } else {
+                    InventoryWidgetCategory->Widgets[k]->SetupAsEmptySlot();
+                }
             }
         }
     }
+}
+
+void UInventoryWidget::NativeConstruct() {
+    Super::NativeConstruct();
+
+    SuppliesCategoryButton->OnClicked.AddDynamic(this, &UInventoryWidget::OnSuppliesCategoryPressed);
+    ToolsCategoryButton->OnClicked.AddDynamic(this, &UInventoryWidget::OnToolsCategoryPressed);
+    WeaponsCategoryButton->OnClicked.AddDynamic(this, &UInventoryWidget::OnWeaponsCategoryPressed);
+    NotesCategoryButton->OnClicked.AddDynamic(this, &UInventoryWidget::OnNotesCategoryPressed);
+
+    ItemDescBorder->SetVisibility(ESlateVisibility::Hidden);
+    OnCategoryChanged(EInventoryCategory::EIC_Supplies);
+
+    // Create inventory slots
+    if (!SlotWidgetClass) { return; }
+    for (auto i = 0; i < static_cast<int32>(EInventoryCategory::NUM_CATEGORIES); i++) {
+        EInventoryCategory Category = static_cast<EInventoryCategory>(i);
+        auto& [Widgets]             = SlotWidgets.Add(Category);
+
+        auto* Grid = GetCategoryGrid(Category);
+        Grid->ClearChildren();
+
+        for (auto k = 0; k < kInventorySize; k++) {
+            UInventorySlotWidget* NewSlot = CreateWidget<UInventorySlotWidget>(this, SlotWidgetClass);
+            if (NewSlot) {
+                NewSlot->SetupAsEmptySlot();
+                NewSlot->OnSlotClicked.AddDynamic(this, &UInventoryWidget::OnSlotClicked);
+                Widgets.Add(NewSlot);
+
+                UUniformGridSlot* GridSlot = Grid->AddChildToUniformGrid(NewSlot);
+                if (GridSlot) {
+                    const auto Row = k / kColumns;
+                    const auto Col = k % kColumns;
+                    GridSlot->SetRow(Row);
+                    GridSlot->SetColumn(Col);
+                }
+            }
+        }
+    }
+}
+
+void UInventoryWidget::NativePreConstruct() {
+    Super::NativePreConstruct();
+    ItemNameText->SetText(FText());
+    ItemDescText->SetText(FText());
+}
+
+FReply UInventoryWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) {
+    const auto Key = InKeyEvent.GetKey();
+
+    if (Key == EKeys::Tab) {
+        if (const auto* HUD = Cast<AHUDBase>(GetOwningPlayer()->GetHUD())) {
+            HUD->GetInventoryItem3dPreview()->SetVisible(false);
+        }
+
+        if (auto* SC = Cast<ASeetheCharacter>(GetOwningPlayerPawn())) {
+            const FInputActionValue Value(Key);
+            SC->OnToggleInventory(Value);
+        }
+
+        return FReply::Handled();
+    }
+
+    return Super::NativeOnPreviewKeyDown(InGeometry, InKeyEvent);
 }
 
 void UInventoryWidget::InitializeWidget(UInventoryComponent* InInventory) {
@@ -85,21 +129,165 @@ void UInventoryWidget::InitializeWidget(UInventoryComponent* InInventory) {
     }
 }
 
-void UInventoryWidget::PositionSlotInCircle(const UInventorySlotWidget* InSlot,
-                                            const int32 Index,
-                                            const int32 Total) const {
-    if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(InSlot->Slot)) {
-        // Calculate the angle (Offset by -90 to start at the top)
-        const float Angle   = (360.f / Total) * Index - 90.f;
-        const float Radians = FMath::DegreesToRadians(Angle);
+// ReSharper disable CppMemberFunctionMayBeConst
+void UInventoryWidget::OnSuppliesCategoryPressed() {
+    OnCategoryChanged(EInventoryCategory::EIC_Supplies);
+}
 
-        // Calculate position based on a radius variable
-        const float Radius = ItemContainer->GetDesiredSize().X / 2.f;
-        const float PosX   = Radius * FMath::Cos(Radians);
-        const float PosY   = Radius * FMath::Sin(Radians);
+void UInventoryWidget::OnToolsCategoryPressed() {
+    OnCategoryChanged(EInventoryCategory::EIC_Tool);
+}
 
-        CanvasSlot->SetPosition(FVector2D(PosX, PosY));
-        CanvasSlot->SetAlignment(FVector2D(0.5f, 0.5f)); // Center it
-        CanvasSlot->SetAutoSize(true);
+void UInventoryWidget::OnWeaponsCategoryPressed() {
+    OnCategoryChanged(EInventoryCategory::EIC_Weapon);
+}
+
+void UInventoryWidget::OnNotesCategoryPressed() {
+    OnCategoryChanged(EInventoryCategory::EIC_Note);
+}
+
+void UInventoryWidget::OnSlotClicked(UInventorySlotWidget* SlotWidget) {
+    if (!SlotWidget) { return; }
+
+    for (auto& [_, WidgetCategory] : SlotWidgets) {
+        WidgetCategory.UnselectAll();
     }
+
+    CurrentlySelectedSlot = SlotWidget;
+    CurrentlySelectedSlot->SetSelected(true);
+
+    ItemDescBorder->SetVisibility(ESlateVisibility::Visible);
+    if (const UInventoryItem* ItemData = CurrentlySelectedSlot->Item.ItemData) {
+        ItemNameText->SetText(ItemData->ItemName);
+        ItemDescText->SetText(ItemData->ItemDescription);
+
+        const auto LogoX = ItemData->ItemManufacturer->ManufacturerLogo->GetSizeX();
+        const auto LogoY = ItemData->ItemManufacturer->ManufacturerLogo->GetSizeY();
+        ItemManufacturerLogo->SetDesiredSizeOverride(FVector2D(LogoX, LogoY));
+        ItemManufacturerLogo->SetBrushFromTexture(ItemData->ItemManufacturer->ManufacturerLogo);
+
+        if (const auto* PC = GetOwningPlayer()) {
+            if (const auto* HUD = Cast<AHUDBase>(PC->GetHUD())) {
+                HUD->GetInventoryItem3dPreview()->SetupPreview(ItemData->ItemPreviewMesh,
+                                                               ItemData->ItemPreviewTransform);
+                HUD->GetInventoryItem3dPreview()->SetVisible(true);
+            }
+        }
+    }
+}
+
+void UInventoryWidget::OnCategoryChanged(const EInventoryCategory& Category) {
+    CategoryWidgetSwitcher->SetActiveWidgetIndex(static_cast<int32>(Category));
+
+    const auto OtherButtonStyle = GetCategoryButtonStyle();
+    auto SelectedButtonStyle    = OtherButtonStyle;
+    SelectedButtonStyle.Normal  = OtherButtonStyle.Hovered;
+
+    TStaticArray<UButton*, 3> OtherButtons{nullptr, nullptr, nullptr};
+    TStaticArray<UImage*, 3> OtherIcons{nullptr, nullptr, nullptr};
+
+    switch (Category) {
+        case EInventoryCategory::EIC_Supplies: {
+            InventoryCategoryText->SetText(NSLOCTEXT("UI", "Inventory", "Supplies"));
+            SuppliesCategoryButton->SetStyle(SelectedButtonStyle);
+            SuppliesIcon->SetColorAndOpacity(FLinearColor(1.f, 0.79f, 0.3f, 1.f));
+
+            OtherButtons[0] = ToolsCategoryButton;
+            OtherButtons[1] = WeaponsCategoryButton;
+            OtherButtons[2] = NotesCategoryButton;
+            OtherIcons[0]   = ToolsIcon;
+            OtherIcons[1]   = WeaponsIcon;
+            OtherIcons[2]   = NotesIcon;
+
+            break;
+        }
+        case EInventoryCategory::EIC_Tool: {
+            InventoryCategoryText->SetText(NSLOCTEXT("UI", "Inventory", "Tools"));
+            ToolsCategoryButton->SetStyle(SelectedButtonStyle);
+            ToolsIcon->SetColorAndOpacity(FLinearColor(1.f, 0.79f, 0.3f, 1.f));
+
+            OtherButtons[0] = SuppliesCategoryButton;
+            OtherButtons[1] = WeaponsCategoryButton;
+            OtherButtons[2] = NotesCategoryButton;
+            OtherIcons[0]   = SuppliesIcon;
+            OtherIcons[1]   = WeaponsIcon;
+            OtherIcons[2]   = NotesIcon;
+
+            break;
+        }
+        case EInventoryCategory::EIC_Weapon: {
+            InventoryCategoryText->SetText(NSLOCTEXT("UI", "Inventory", "Weapons"));
+            WeaponsCategoryButton->SetStyle(SelectedButtonStyle);
+            WeaponsIcon->SetColorAndOpacity(FLinearColor(1.f, 0.79f, 0.3f, 1.f));
+
+            OtherButtons[0] = ToolsCategoryButton;
+            OtherButtons[1] = SuppliesCategoryButton;
+            OtherButtons[2] = NotesCategoryButton;
+            OtherIcons[0]   = ToolsIcon;
+            OtherIcons[1]   = SuppliesIcon;
+            OtherIcons[2]   = NotesIcon;
+
+            break;
+        }
+        case EInventoryCategory::EIC_Note: {
+            InventoryCategoryText->SetText(NSLOCTEXT("UI", "Inventory", "Notes"));
+            NotesCategoryButton->SetStyle(SelectedButtonStyle);
+            NotesIcon->SetColorAndOpacity(FLinearColor(1.f, 0.79f, 0.3f, 1.f));
+
+            OtherButtons[0] = ToolsCategoryButton;
+            OtherButtons[1] = WeaponsCategoryButton;
+            OtherButtons[2] = SuppliesCategoryButton;
+            OtherIcons[0]   = ToolsIcon;
+            OtherIcons[1]   = WeaponsIcon;
+            OtherIcons[2]   = SuppliesIcon;
+
+            break;
+        }
+        default:
+            return;
+    }
+
+    for (auto* Button : OtherButtons) {
+        Button->SetStyle(OtherButtonStyle);
+    }
+
+    for (auto* Icon : OtherIcons) {
+        Icon->SetColorAndOpacity(FLinearColor::White.CopyWithNewOpacity(0.3f));
+    }
+}
+
+UUniformGridPanel* UInventoryWidget::GetCategoryGrid(const EInventoryCategory& Category) const {
+    switch (Category) {
+        case EInventoryCategory::EIC_Supplies:
+            return SuppliesGrid;
+        case EInventoryCategory::EIC_Tool:
+            return ToolsGrid;
+        case EInventoryCategory::EIC_Weapon:
+            return WeaponsGrid;
+        case EInventoryCategory::EIC_Note:
+            return NotesGrid;
+        default:
+            return nullptr;
+    }
+}
+
+FButtonStyle UInventoryWidget::GetCategoryButtonStyle() {
+    FSlateBrush NormalBrush;
+    NormalBrush.TintColor = FSlateColor(FLinearColor::Black.CopyWithNewOpacity(0.0f));
+    NormalBrush.DrawAs    = ESlateBrushDrawType::Box;
+    NormalBrush.ImageSize = FVector2D{80.f, 80.f};
+    NormalBrush.SetResourceObject(nullptr);
+
+    FSlateBrush HoveredBrush = NormalBrush;
+    HoveredBrush.TintColor   = FSlateColor(FLinearColor::Black.CopyWithNewOpacity(0.4f));
+
+    FSlateBrush PressedBrush = NormalBrush;
+    PressedBrush.TintColor   = FSlateColor(FLinearColor::Black.CopyWithNewOpacity(0.8f));
+
+    FButtonStyle Style;
+    Style.Normal  = NormalBrush;
+    Style.Hovered = HoveredBrush;
+    Style.Pressed = PressedBrush;
+
+    return Style;
 }

@@ -3,21 +3,21 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "BaseEquipable.h"
+#include "Seethe/BaseEquipable.h"
 #include "GameFramework/Actor.h"
-#include "Flashlight.generated.h"
+#include "FlashlightTool.generated.h"
 
 class USpotLightComponent;
 
 UCLASS()
-class SEETHE_API AFlashlight : public ABaseEquipable {
+class SEETHE_API AFlashlightTool : public ABaseEquipable {
     GENERATED_BODY()
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<USpotLightComponent> LightComponent;
 
 public:
-    AFlashlight();
+    AFlashlightTool();
 
     virtual void Use(ASeetheCharacter* Character) override;
 

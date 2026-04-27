@@ -93,48 +93,34 @@ void ASeetheCharacter::OnReload(const FInputActionValue&) {
     }
 }
 
-void ASeetheCharacter::OnShowInventory(const FInputActionValue&) {
-    if (bIsInventoryOpen) { return; }
-
+void ASeetheCharacter::OnToggleInventory(const FInputActionValue&) {
     APlayerController* PC = Cast<APlayerController>(GetController());
     const AHUDBase* HUD   = Cast<AHUDBase>(PC->GetHUD());
 
     if (PC && HUD) {
-        bIsInventoryOpen = true;
-        HUD->ShowInventory();
+        if (HUD->IsInventoryOpen()) {
+            HUD->HideInventory();
 
-        PC->SetIgnoreLookInput(true);
-        PC->SetIgnoreMoveInput(true);
-        PC->SetShowMouseCursor(true);
+            PC->ResetIgnoreLookInput();
+            PC->ResetIgnoreMoveInput();
+            PC->SetShowMouseCursor(false);
 
-        FInputModeGameAndUI InputMode;
-        if (UUserWidget* InvWidget = HUD->InventoryWidget) {
-            InputMode.SetWidgetToFocus(InvWidget->TakeWidget());
+            const FInputModeGameOnly InputMode;
+            PC->SetInputMode(InputMode);
+        } else {
+            HUD->ShowInventory();
+
+            PC->SetIgnoreLookInput(true);
+            PC->SetIgnoreMoveInput(true);
+            PC->SetShowMouseCursor(true);
+
+            FInputModeUIOnly InputMode;
+            if (UUserWidget* InvWidget = HUD->InventoryWidget) {
+                InputMode.SetWidgetToFocus(InvWidget->TakeWidget());
+            }
+            InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockInFullscreen);
+            PC->SetInputMode(InputMode);
         }
-        InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockInFullscreen);
-        InputMode.SetHideCursorDuringCapture(false);
-        PC->SetInputMode(InputMode);
-    }
-}
-
-void ASeetheCharacter::OnHideInventory() {
-    if (!bIsInventoryOpen) {
-        return; // Prevent re-triggering if already closed
-    }
-
-    APlayerController* PC = Cast<APlayerController>(GetController());
-    const AHUDBase* HUD   = Cast<AHUDBase>(PC->GetHUD());
-
-    if (PC && HUD) {
-        bIsInventoryOpen = false;
-        HUD->HideInventory();
-
-        PC->ResetIgnoreLookInput();
-        PC->ResetIgnoreMoveInput();
-        PC->SetShowMouseCursor(false);
-
-        const FInputModeGameOnly InputMode;
-        PC->SetInputMode(InputMode);
     }
 }
 
@@ -178,21 +164,12 @@ void ASeetheCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
                                            this,
                                            &ASeetheCharacter::OnInteract);
         EnhancedInputComponent->BindAction(InventoryAction,
-                                           ETriggerEvent::Started,
+                                           ETriggerEvent::Triggered,
                                            this,
-                                           &ASeetheCharacter::OnShowInventory);
+                                           &ASeetheCharacter::OnToggleInventory);
 
         EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Completed, this, &ASeetheCharacter::OnStopLook);
         EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Canceled, this, &ASeetheCharacter::OnStopLook);
-
-        EnhancedInputComponent->BindAction(InventoryAction,
-                                           ETriggerEvent::Completed,
-                                           this,
-                                           &ASeetheCharacter::OnHideInventory);
-        EnhancedInputComponent->BindAction(InventoryAction,
-                                           ETriggerEvent::Canceled,
-                                           this,
-                                           &ASeetheCharacter::OnHideInventory);
     }
 }
 
@@ -287,9 +264,9 @@ void ASeetheCharacter::Drop() {
     GetHUDWidget()->HideWeaponCrosshair();
 }
 
-void ASeetheCharacter::UseItem(const int32 Index, const bool bShouldConsume) {
+void ASeetheCharacter::UseItem(const int32 Index, const EInventoryCategory& Category) {
     if (Index < 0) { return; }
-    GetInventory()->UseItem(Index, bShouldConsume);
+    GetInventory()->UseItem(Index, Category);
 }
 
 IEquipableInterface* ASeetheCharacter::GetEquipableInterface() const {
@@ -301,6 +278,9 @@ IWeaponInterface* ASeetheCharacter::GetWeaponInterface() const {
 }
 
 void ASeetheCharacter::EquipableSway(const float DeltaTime) {
+    const APlayerController* PC = Cast<APlayerController>(GetController());
+    if (!PC || PC->IsLookInputIgnored()) { return; }
+
     FRotator TargetSway;
     TargetSway.Pitch = FMath::Clamp(LookAxisY * SwayAmount, -MaxSway, MaxSway);
     TargetSway.Yaw   = FMath::Clamp(LookAxisX * SwayAmount, -MaxSway, MaxSway);
@@ -313,6 +293,9 @@ void ASeetheCharacter::EquipableSway(const float DeltaTime) {
 }
 
 void ASeetheCharacter::Mesh1PAvoidClipping(const float DeltaTime) {
+    const APlayerController* PC = Cast<APlayerController>(GetController());
+    if (!PC || PC->IsMoveInputIgnored()) { return; }
+
     FHitResult WallHit;
     const FVector Start = FirstPersonCamera->GetComponentLocation();
     const FVector End   = Start + (FirstPersonCamera->GetForwardVector() * 100.0f);

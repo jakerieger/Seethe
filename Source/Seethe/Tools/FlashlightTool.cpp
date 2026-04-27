@@ -1,23 +1,23 @@
 ﻿// Copyright (C) 2026 Jake Rieger
 
 
-#include "Flashlight.h"
-#include "SeetheCharacter.h"
-#include "UI/HUDWidget.h"
+#include "FlashlightTool.h"
+#include "Seethe/SeetheCharacter.h"
+#include "Seethe/UI/HUDWidget.h"
 #include "Components/SpotLightComponent.h"
 
-AFlashlight::AFlashlight() {
+AFlashlightTool::AFlashlightTool() {
     LightComponent = CreateDefaultSubobject<USpotLightComponent>("LightComponent");
     LightComponent->SetupAttachment(GetRootComponent());
     LightComponent->SetIntensityUnits(ELightUnits::Lumens);
     LightComponent->SetVisibility(false);
 }
 
-void AFlashlight::Use(ASeetheCharacter* Character) {
+void AFlashlightTool::Use(ASeetheCharacter* Character) {
     SetOn(!IsOn());
 }
 
-void AFlashlight::SetOn(const bool bShouldBeOn) const {
+void AFlashlightTool::SetOn(const bool bShouldBeOn) const {
     if (PowerMontage) {
         const ASeetheCharacter* PC = Cast<ASeetheCharacter>(GetOwner());
         if (PC) {
@@ -25,22 +25,22 @@ void AFlashlight::SetOn(const bool bShouldBeOn) const {
             const float Duration = Anim->Montage_Play(PowerMontage);
             if (Anim && Duration > 0.f) {
                 FOnMontageEnded MontageEnded;
-                MontageEnded.BindUObject(this, &AFlashlight::OnPowerMontageEnded, bShouldBeOn);
+                MontageEnded.BindUObject(this, &AFlashlightTool::OnPowerMontageEnded, bShouldBeOn);
                 Anim->Montage_SetEndDelegate(MontageEnded, PowerMontage);
             }
         }
     }
 }
 
-bool AFlashlight::IsOn() const {
+bool AFlashlightTool::IsOn() const {
     return LightComponent && LightComponent->IsVisible();
 }
 
-bool AFlashlight::IsDead() const {
+bool AFlashlightTool::IsDead() const {
     return BatteryLife <= 0.0f;
 }
 
-void AFlashlight::Recharge(const float Amount) {
+void AFlashlightTool::Recharge(const float Amount) {
     const ASeetheCharacter* PC = Cast<ASeetheCharacter>(GetOwner());
     if (!PC) { return; }
 
@@ -63,19 +63,19 @@ void AFlashlight::Recharge(const float Amount) {
     }
 }
 
-void AFlashlight::BeginPlay() {
+void AFlashlightTool::BeginPlay() {
     Super::BeginPlay();
 
     // Executes once per second
     GetWorldTimerManager().SetTimer(
         TimerHandle_BatteryLifeUpdate,
         this,
-        &AFlashlight::UpdateBatteryLife,
+        &AFlashlightTool::UpdateBatteryLife,
         1.0f,
         true);
 }
 
-void AFlashlight::UpdateBatteryLife() {
+void AFlashlightTool::UpdateBatteryLife() {
     const ASeetheCharacter* PC = Cast<ASeetheCharacter>(GetOwner());
     if (!PC) { return; }
 
@@ -98,7 +98,7 @@ void AFlashlight::UpdateBatteryLife() {
     }
 }
 
-void AFlashlight::OnPowerMontageEnded(UAnimMontage*, bool, const bool bFlashlightOn) const {
+void AFlashlightTool::OnPowerMontageEnded(UAnimMontage*, bool, const bool bFlashlightOn) const {
     const ASeetheCharacter* PC = Cast<ASeetheCharacter>(GetOwner());
     if (!PC) { return; }
 

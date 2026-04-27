@@ -11,5 +11,6 @@ class SEETHE_API UBatteryItem : public UInventoryItem {
     GENERATED_BODY()
 
 public:
-    virtual void Use_Implementation(ASeetheCharacter* Character, int32 Index) override;
+    virtual void
+    Use_Implementation(ASeetheCharacter* Character, int32 Index, const EInventoryCategory& Category) override;
 };

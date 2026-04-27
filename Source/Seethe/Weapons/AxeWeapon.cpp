@@ -2,9 +2,9 @@
 
 
 #include "AxeWeapon.h"
-#include "../SeetheCharacter.h"
-#include "../GameUtils.h"
-#include "../UI/HUDWidget.h"
+#include "Seethe/SeetheCharacter.h"
+#include "Seethe/GameUtils.h"
+#include "Seethe/UI/HUDWidget.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"

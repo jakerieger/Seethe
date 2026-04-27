@@ -4,7 +4,7 @@
 #include "ItemPickupBase.h"
 #include "InventoryComponent.h"
 #include "Kismet/GameplayStatics.h"
-#include "../SeetheCharacter.h"
+#include "Seethe/SeetheCharacter.h"
 #include "Seethe/UI/InteractPopupWidget.h"
 
 AItemPickupBase::AItemPickupBase() {
@@ -38,6 +38,14 @@ void AItemPickupBase::LookAt() {
 void AItemPickupBase::LookAway() {
     ItemMesh->SetRenderCustomDepth(false);
     HideInteractWidget();
+}
+
+FText AItemPickupBase::GetInteractMessage() {
+    const auto MsgTxt = FText::Format(
+        NSLOCTEXT("UI", "World", "Equip {0} (x{1})"),
+        InventoryItem->ItemName,
+        InventoryItem->Quantity);
+    return MsgTxt;
 }
 
 UStaticMeshComponent* AItemPickupBase::GetMesh() const {

@@ -19,6 +19,7 @@ class UCameraComponent;
 class UHUDWidget;
 class UInventoryComponent;
 class UInventoryWidget;
+class UInventorySlotWidget;
 class UInventoryItemData;
 
 struct FInputActionValue;
@@ -35,6 +36,9 @@ class SEETHE_API ASeetheCharacter : public ACharacter {
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<UInventoryComponent> InventoryComponent;
+
+    friend UInventoryWidget;
+    friend UInventorySlotWidget;
 
 public:
     ASeetheCharacter();
@@ -85,7 +89,7 @@ protected:
     void OnLook(const FInputActionValue& Value);
     void OnUse(const FInputActionValue& Value);
     void OnReload(const FInputActionValue& Value);
-    void OnShowInventory(const FInputActionValue& Value);
+    void OnToggleInventory(const FInputActionValue& Value);
     void OnInteract(const FInputActionValue& Value);
 
     void Die();
@@ -125,7 +129,7 @@ public:
     void Drop();
 
     UFUNCTION(BlueprintCallable, Category = "Inventory")
-    void UseItem(int32 Index, bool bShouldConsume);
+    void UseItem(int32 Index, const EInventoryCategory& Category);
 
 private:
     float BobAmplitude = 2.0f;
@@ -137,7 +141,6 @@ private:
     float EnemyDetectRange = 1200.0f;
     float LookAxisX        = 0, LookAxisY = 0;
     FTransform EquipableOffset;
-    bool bIsInventoryOpen = false;
 
     UPROPERTY()
     TObjectPtr<ABaseEquipable> CurrentEquipable;
@@ -159,7 +162,4 @@ private:
 
     UFUNCTION()
     void OnStopLook();
-
-    UFUNCTION()
-    void OnHideInventory();
 };

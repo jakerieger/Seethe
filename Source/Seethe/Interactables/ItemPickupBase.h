@@ -4,7 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "../Interfaces/InteractableInterface.h"
+#include "Seethe/Interfaces/InteractableInterface.h"
 #include "Components/WidgetComponent.h"
 #include "ItemPickupBase.generated.h"
 
@@ -39,7 +39,7 @@ public:
     virtual void Interact(ASeetheCharacter* Character) override;
     virtual void LookAt() override;
     virtual void LookAway() override;
-    virtual FText GetInteractMessage() override { return FText::FromString(""); }
+    virtual FText GetInteractMessage() override;
 
     /** Helpers **/
     UFUNCTION(BlueprintPure, Category="Inventory")

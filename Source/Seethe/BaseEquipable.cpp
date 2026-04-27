@@ -2,7 +2,7 @@
 
 
 #include "BaseEquipable.h"
-#include "../SeetheCharacter.h"
+#include "Seethe/SeetheCharacter.h"
 #include "Kismet/GameplayStatics.h"
 
 ABaseEquipable::ABaseEquipable() {

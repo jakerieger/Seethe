@@ -2,36 +2,74 @@
 
 
 #include "InventoryComponent.h"
-#include "../SeetheCharacter.h"
+#include "Seethe/SeetheCharacter.h"
+
+void FInventoryCategory::Initialize() {
+    Slots.Empty(kInventorySize);
+    for (int32 i = 0; i < kInventorySize; ++i) {
+        Slots.Add(FInventorySlot());
+    }
+    UsedSlots = 0;
+
+    UE_LOG(LogTemp, Warning, TEXT("FInventoryCategory::Initialize()"));
+}
+
+bool FInventoryCategory::AddItem(UInventoryItem* Item) {
+    if ((UsedSlots + 1) > kInventorySize) { return false; }
+    auto& Slot    = Slots[UsedSlots];
+    Slot.ItemData = Item;
+    Slot.Quantity = Item->Quantity;
+    UsedSlots++;
+    return true;
+}
+
+bool FInventoryCategory::RemoveItem(const int32 Index) {
+    if (Slots.IsValidIndex(Index) && Slots[Index].ItemData != nullptr) {
+        // Shift everything down
+        for (int32 i = Index; i < Slots.Num() - 1; ++i) {
+            Slots[i] = Slots[i + 1];
+        }
+
+        // Clear the very last slot
+        Slots.Last() = FInventorySlot();
+        UsedSlots--;
+
+        return true;
+    }
+
+    return false;
+}
 
 UInventoryComponent::UInventoryComponent() {
     PrimaryComponentTick.bCanEverTick = false;
 }
 
 void UInventoryComponent::AddItem(UInventoryItem* Item) {
-    FInventorySlot NewSlot;
-    NewSlot.ItemData = Item;
-    NewSlot.Quantity = Item->Quantity;
-    InventoryItems.Add(NewSlot);
-    UpdateInventory();
-}
-
-void UInventoryComponent::RemoveItem(const int32 Index) {
-    if (InventoryItems.IsValidIndex(Index)) {
-        InventoryItems.RemoveAt(Index);
+    auto& ItemCategory = InventoryCategories.FindOrAdd(Item->ItemCategory);
+    if (ItemCategory.AddItem(Item)) {
+        UpdateInventory();
     }
-    UpdateInventory();
 }
 
-void UInventoryComponent::UseItem(const int32 Index, const bool bShouldConsume) {
-    if (!CanUseItem(Index)) { return; }
-    if (InventoryItems.IsValidIndex(Index)) {
-        if (InventoryItems[Index].Quantity > 0) {
-            InventoryItems[Index].ItemData->Use(Cast<ASeetheCharacter>(GetOwner()), Index);
+void UInventoryComponent::RemoveItem(const int32 Index, const EInventoryCategory& Category) {
+    auto& ItemCategory = InventoryCategories.FindOrAdd(Category);
+    if (ItemCategory.RemoveItem(Index)) {
+        UpdateInventory();
+    }
+}
 
-            if (bShouldConsume) {
-                if (--InventoryItems[Index].Quantity == 0) {
-                    InventoryItems.RemoveAt(Index);
+void UInventoryComponent::UseItem(const int32 Index, const EInventoryCategory& Category) {
+    if (!CanUseItem(Index, Category)) { return; }
+
+    auto& ItemCategory       = InventoryCategories.FindOrAdd(Category);
+    auto& [Slots, UsedSlots] = ItemCategory;
+    if (Slots.IsValidIndex(Index)) {
+        if (Slots[Index].Quantity > 0) {
+            Slots[Index].ItemData->Use(Cast<ASeetheCharacter>(GetOwner()), Index, Category);
+
+            if (Slots[Index].ShouldConsume()) {
+                if (--Slots[Index].Quantity <= 0) {
+                    ItemCategory.RemoveItem(Index);
                 }
             }
 
@@ -40,14 +78,26 @@ void UInventoryComponent::UseItem(const int32 Index, const bool bShouldConsume) 
     }
 }
 
-TArray<FInventorySlot>& UInventoryComponent::GetSlots() {
-    return InventoryItems;
+TArray<FInventorySlot>& UInventoryComponent::GetSlots(const EInventoryCategory& Category) {
+    return InventoryCategories.FindOrAdd(Category).Slots;
 }
 
-bool UInventoryComponent::CanUseItem(const int32 Index) const {
-    if (InventoryItems.IsValidIndex(Index)) {
-        return InventoryItems[Index].bCanUse;
+void UInventoryComponent::BeginPlay() {
+    Super::BeginPlay();
+
+    for (auto i = 0; i < static_cast<int32>(EInventoryCategory::NUM_CATEGORIES); i++) {
+        EInventoryCategory Category = static_cast<EInventoryCategory>(i);
+        auto& NewCategory           = InventoryCategories.Add(Category);
+        NewCategory.Initialize();
     }
+}
+
+bool UInventoryComponent::CanUseItem(const int32 Index, const EInventoryCategory& Category) {
+    auto& [Slots, UsedSlots] = InventoryCategories.FindOrAdd(Category);
+    if (Slots.IsValidIndex(Index)) {
+        return Slots[Index].bCanUse;
+    }
+
     return false;
 }
 
