@@ -78,7 +78,7 @@ public:
     UHUDWidget* ShowCrosshair();
 
     UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* HideWeaponCrosshair();
+    UHUDWidget* HideCrosshair();
 
     UFUNCTION(BlueprintCallable, Category="HUD")
     UHUDWidget* TriggerHitmarker();

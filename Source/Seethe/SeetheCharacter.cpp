@@ -235,7 +235,6 @@ void ASeetheCharacter::Equip(const UInventoryItemEquipable* Item) {
     if (NewEquipable) {
         CurrentEquipable = NewEquipable;
         CurrentEquipable->Equip(this);
-        LastPickupClass = Item->PickupClass;
         if (CurrentEquipable->CrosshairTexture) {
             GetHUDWidget()->SetCrosshairTexture(CurrentEquipable->CrosshairTexture)
                           ->ShowCrosshair();
@@ -246,22 +245,11 @@ void ASeetheCharacter::Equip(const UInventoryItemEquipable* Item) {
 void ASeetheCharacter::Drop() {
     if (!CurrentEquipable) { return; }
 
-    const FVector DropLocation = GetMesh1P()->GetSocketLocation(FName("S_Attach")) + (GetActorForwardVector() * 100.f);
-
-    const AItemPickupBase* DroppedItem = GetWorld()->SpawnActor<AItemPickupBase>(
-        LastPickupClass,
-        DropLocation,
-        FRotator::ZeroRotator);
-
-    if (DroppedItem) {
-        DroppedItem->GetMesh()->AddImpulse(FirstPersonCamera->GetForwardVector() * 500.f);
-    }
-
     CurrentEquipable->Drop(this);
     CurrentEquipable->Destroy();
     CurrentEquipable = nullptr;
 
-    GetHUDWidget()->HideWeaponCrosshair();
+    GetHUDWidget()->HideCrosshair();
 }
 
 void ASeetheCharacter::UseItem(const int32 Index, const EInventoryCategory& Category) {

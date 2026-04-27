@@ -30,7 +30,7 @@ UHUDWidget* UHUDWidget::ShowCrosshair() {
     return this;
 }
 
-UHUDWidget* UHUDWidget::HideWeaponCrosshair() {
+UHUDWidget* UHUDWidget::HideCrosshair() {
     WeaponCrosshairImage->SetVisibility(ESlateVisibility::Hidden);
     return this;
 }

@@ -146,9 +146,6 @@ private:
     TObjectPtr<ABaseEquipable> CurrentEquipable;
 
     UPROPERTY()
-    TSubclassOf<AItemPickupBase> LastPickupClass;
-
-    UPROPERTY()
     TScriptInterface<IInteractableInterface> CurrentInteractable;
 
     IEquipableInterface* GetEquipableInterface() const;

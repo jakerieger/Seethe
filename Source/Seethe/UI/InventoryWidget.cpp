@@ -106,7 +106,7 @@ void UInventoryWidget::NativePreConstruct() {
 FReply UInventoryWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) {
     const auto Key = InKeyEvent.GetKey();
 
-    if (Key == EKeys::Tab) {
+    if (Key == EKeys::Tab || Key == EKeys::Gamepad_Special_Right) {
         if (const auto* HUD = Cast<AHUDBase>(GetOwningPlayer()->GetHUD())) {
             HUD->GetInventoryItem3dPreview()->SetVisible(false);
         }
@@ -117,6 +117,19 @@ FReply UInventoryWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, con
         }
 
         return FReply::Handled();
+    }
+
+    if (Key == EKeys::X || Key == EKeys::Gamepad_FaceButton_Right) {
+        if (CurrentlySelectedSlot) {
+            UInventoryItem* Item = CurrentlySelectedSlot->Item.ItemData;
+            if (Item) {
+                const int32 Index                 = CurrentlySelectedSlot->ItemIndex;
+                const EInventoryCategory Category = Item->ItemCategory;
+                if (auto* SC = Cast<ASeetheCharacter>(GetOwningPlayerPawn())) {
+                    Item->Drop(SC, Index, Category);
+                }
+            }
+        }
     }
 
     return Super::NativeOnPreviewKeyDown(InGeometry, InKeyEvent);

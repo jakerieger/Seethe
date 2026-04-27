@@ -10,6 +10,7 @@
 #include "InventoryItem.generated.h"
 
 class ASeetheCharacter;
+class AItemPickupBase;
 
 UENUM(BlueprintType)
 enum class EInventoryCategory : uint8 {
@@ -42,6 +43,9 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
     TObjectPtr<UStaticMesh> ItemPreviewMesh;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
+    TSubclassOf<AItemPickupBase> ItemPickupClass;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
     FTransform ItemPreviewTransform{FTransform::Identity};
@@ -94,6 +98,9 @@ public:
 
     virtual void
     Use_Implementation(ASeetheCharacter* Character, int32 Index, const EInventoryCategory& Category) override;
+
+    virtual void
+    Drop_Implementation(ASeetheCharacter* Character, int32 Index, const EInventoryCategory& Category) override;
 };
 
 USTRUCT(BlueprintType)
