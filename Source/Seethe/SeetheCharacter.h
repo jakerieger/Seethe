@@ -46,6 +46,15 @@ public:
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
+    /** Input methods **/
+    void OnMove(const FInputActionValue& Value);
+    void OnLook(const FInputActionValue& Value);
+    void OnUse(const FInputActionValue& Value);
+    void OnReload(const FInputActionValue& Value);
+    void OnToggleInventory(const FInputActionValue& Value);
+    void OnInteract(const FInputActionValue& Value);
+    void OnUnEquip(const FInputActionValue& Value);
+
 protected:
     /** Properties **/
     UPROPERTY(EditAnywhere, Category = "Input")
@@ -66,6 +75,9 @@ protected:
     UPROPERTY(EditAnywhere, Category = "Input")
     TObjectPtr<UInputAction> InteractAction;
 
+    UPROPERTY(EditAnywhere, Category = "Input")
+    TObjectPtr<UInputAction> UnEquipAction;
+
     UPROPERTY(EditAnywhere, Category = "Weapon")
     float DrawbackSpeed = 15.0f;
 
@@ -83,14 +95,6 @@ protected:
 
     UPROPERTY(BlueprintReadOnly, Category = "Sway")
     FRotator EquipSwayRotation;
-
-    /** Input methods **/
-    void OnMove(const FInputActionValue& Value);
-    void OnLook(const FInputActionValue& Value);
-    void OnUse(const FInputActionValue& Value);
-    void OnReload(const FInputActionValue& Value);
-    void OnToggleInventory(const FInputActionValue& Value);
-    void OnInteract(const FInputActionValue& Value);
 
     void Die();
 
@@ -111,8 +115,13 @@ public:
     ABaseEquipable* GetCurrentEquipable();
     ABaseWeapon* GetCurrentWeapon();
 
+    bool HasEquippedItem() const;
+
     UFUNCTION(BlueprintPure, Category = "Health")
     float GetHealthPercent() const;
+
+    UFUNCTION(BlueprintPure, Category = "HUD")
+    class AHUDBase* GetHUDInstance() const;
 
     UFUNCTION(BlueprintPure, Category = "HUD")
     UHUDWidget* GetHUDWidget() const;
@@ -126,6 +135,7 @@ public:
                              AActor* DamageCauser) override;
 
     void Equip(const UInventoryItemEquipable* Item);
+    void UnEquip();
     void Drop();
 
     UFUNCTION(BlueprintCallable, Category = "Inventory")
@@ -141,6 +151,9 @@ private:
     float EnemyDetectRange = 1200.0f;
     float LookAxisX        = 0, LookAxisY = 0;
     FTransform EquipableOffset;
+
+    UPROPERTY()
+    TMap<UClass*, ABaseEquipable*> CachedEquipables;
 
     UPROPERTY()
     TObjectPtr<ABaseEquipable> CurrentEquipable;
@@ -159,4 +172,13 @@ private:
 
     UFUNCTION()
     void OnStopLook();
+
+    UFUNCTION()
+    void OnEquipCompleted(ABaseEquipable* Equipable);
+
+    UFUNCTION()
+    void OnUnEquipCompleted(ABaseEquipable* Equipable);
+
+    UFUNCTION()
+    void OnDropCompleted(ABaseEquipable* Equipable);
 };

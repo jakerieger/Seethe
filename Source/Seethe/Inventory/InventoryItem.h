@@ -30,7 +30,7 @@ public:
     FText ItemName;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
-    EInventoryCategory ItemCategory{EInventoryCategory::EIC_Supplies};
+    EInventoryCategory ItemCategory {EInventoryCategory::EIC_Supplies};
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
     TObjectPtr<UItemManufacturer> ItemManufacturer;
@@ -48,7 +48,7 @@ public:
     TSubclassOf<AItemPickupBase> ItemPickupClass;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
-    FTransform ItemPreviewTransform{FTransform::Identity};
+    FTransform ItemPreviewTransform {FTransform::Identity};
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
     int32 MaxStackSize;
@@ -60,7 +60,16 @@ public:
     TObjectPtr<UAnimMontage> UseAnim;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
+    TObjectPtr<USoundBase> UseSound;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
     TObjectPtr<UAnimMontage> DropAnim;
+
+    UFUNCTION(BlueprintNativeEvent, Category="Inventory")
+    bool CanUse(ASeetheCharacter* Character, int32 Index, const EInventoryCategory& Category);
+    virtual bool CanUse_Implementation(ASeetheCharacter* Character,
+                                       int32 Index,
+                                       const EInventoryCategory& Category);
 
     UFUNCTION(BlueprintNativeEvent, Category="Inventory")
     void Use(ASeetheCharacter* Character, int32 Index, const EInventoryCategory& Category);
@@ -91,9 +100,6 @@ class SEETHE_API UInventoryItemEquipable : public UInventoryItem {
 
 public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
-    TSubclassOf<AItemPickupBase> PickupClass;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
     TSubclassOf<ABaseEquipable> EquipableClass;
 
     virtual void
@@ -112,9 +118,6 @@ struct SEETHE_API FInventorySlot {
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Inventory")
     int32 Quantity;
-
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory")
-    bool bCanUse{true};
 
     bool ShouldConsume() const;
 

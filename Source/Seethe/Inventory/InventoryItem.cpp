@@ -2,14 +2,28 @@
 
 
 #include "InventoryItem.h"
+
+#include "HUDBase.h"
+#include "InputActionValue.h"
 #include "InventoryComponent.h"
 #include "Camera/CameraComponent.h"
+#include "Kismet/GameplayStatics.h"
 #include "Seethe/Interactables/ItemPickupBase.h"
 #include "Seethe/SeetheCharacter.h"
+
+bool UInventoryItem::CanUse_Implementation(ASeetheCharacter* Character,
+                                           int32 Index,
+                                           const EInventoryCategory& Category) {
+    return true;
+}
 
 void UInventoryItem::Use_Implementation(ASeetheCharacter* Character, int32 Index, const EInventoryCategory& Category) {
     if (UseAnim) {
         Character->GetMesh1P()->GetAnimInstance()->Montage_Play(UseAnim);
+    }
+
+    if (UseSound) {
+        UGameplayStatics::PlaySoundAtLocation(Character->GetWorld(), UseSound, Character->GetActorLocation());
     }
 }
 
@@ -41,12 +55,22 @@ void UInventoryItem::Drop_Implementation(ASeetheCharacter* Character,
                 Mesh->AddImpulse(CameraForward * 100.f);
             }
         }
-    }
 
-    Character->GetInventory()->RemoveItem(Index, Category);
+        if (const UHUDWidget* HUD = Character->GetHUDWidget()) {
+            FToastNotification Notification;
+            Notification.Icon    = ItemIcon;
+            Notification.Message = FText::Format(
+                NSLOCTEXT("UI", "Notification", "Dropped {0} (x{1})"),
+                ItemName,
+                Quantity);
+            HUD->PostToastNotification(Notification);
+        }
 
-    if (DropAnim) {
-        Character->GetMesh1P()->GetAnimInstance()->Montage_Play(DropAnim);
+        Character->GetInventory()->RemoveItem(Index, Category);
+
+        if (DropAnim) {
+            Character->GetMesh1P()->GetAnimInstance()->Montage_Play(DropAnim);
+        }
     }
 }
 
@@ -65,6 +89,12 @@ void UInventoryItemEquipable::Use_Implementation(ASeetheCharacter* Character,
     if (Character) {
         Character->Equip(this);
         Super::Use_Implementation(Character, Index, Category);
+
+        if (const AHUDBase* HUD = Character->GetHUDInstance()) {
+            if (HUD->IsInventoryOpen()) {
+                Character->OnToggleInventory(FInputActionValue());
+            }
+        }
     }
 }
 

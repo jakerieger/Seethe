@@ -3,19 +3,23 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "ConfirmNotificationWidget.h"
+#include "ToastNotificationWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/CanvasPanel.h"
 #include "Components/Image.h"
 #include "Components/ProgressBar.h"
+#include "Components/SizeBox.h"
 #include "Components/TextBlock.h"
+#include "Components/VerticalBox.h"
 #include "HUDWidget.generated.h"
 
 UENUM(BlueprintType)
 enum class EBatteryChargeState : uint8 {
-    BCS_Dead UMETA(DisplayName = "Dead"),
-    BCS_Low UMETA(DisplayName = "Low Charge"),
-    BCS_Mid UMETA(DisplayName = "Mid Charge"),
-    BCS_Full UMETA(DisplayName = "Full Charge"),
+    Dead UMETA(DisplayName = "Dead"),
+    LowCharge UMETA(DisplayName = "Low Charge"),
+    MidCharge UMETA(DisplayName = "Mid Charge"),
+    FullCharge UMETA(DisplayName = "Full Charge"),
 };
 
 UCLASS()
@@ -51,6 +55,13 @@ public:
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UImage> BatteryIcon;
 
+    UPROPERTY(meta = (BindWidget))
+    TObjectPtr<UVerticalBox> ToastNotificationContainer;
+
+    UPROPERTY(meta = (BindWidget))
+    TObjectPtr<USizeBox> ConfirmNotificationContainer;
+
+    /*********************************************/
     UPROPERTY(EditAnywhere, Category = "HUD")
     TObjectPtr<UTexture2D> BatteryDeadIcon;
 
@@ -62,6 +73,12 @@ public:
 
     UPROPERTY(EditAnywhere, Category = "HUD")
     TObjectPtr<UTexture2D> BatteryFullChargeIcon;
+
+    UPROPERTY(EditAnywhere, Category = "HUD")
+    TSubclassOf<UToastNotificationWidget> ToastNotificationWidgetClass;
+
+    UPROPERTY(EditAnywhere, Category = "HUD")
+    TSubclassOf<UConfirmNotificationWidget> ConfirmNotificationWidgetClass;
 
 protected:
     virtual void NativeConstruct() override;
@@ -92,21 +109,39 @@ public:
     UFUNCTION(BlueprintCallable, Category="HUD")
     UHUDWidget* SetChargeIconColor(const FColor& Color);
 
+    UFUNCTION(BlueprintCallable, Category="HUD")
+    void PostToastNotification(const FToastNotification& Notification, float Duration = 3.f) const;
+
+    UFUNCTION(BlueprintCallable, Category="HUD")
+    void PostConfirmNotification(const FConfirmNotification& Notification);
+
+    UFUNCTION(BlueprintCallable, Category="HUD")
+    UConfirmNotificationWidget* GetCurrentConfirmWidget();
+
 private:
     UPROPERTY(EditAnywhere, Category = "Sway")
-    float SwayIntensity = 10.0f;
+    float SwayIntensity {10.0f};
 
     UPROPERTY(EditAnywhere, Category = "Sway")
-    float SwaySmoothing = 14.0f;
+    float SwaySmoothing {14.0f};
 
     UPROPERTY(Transient, meta = (BindWidgetAnim))
     TObjectPtr<UWidgetAnimation> ChargeBlinkAnim;
 
     FVector2D LastLookInput;
     FVector2D CurrentSwayOffset;
-    float HitmarkerTimer    = 0.0f;
-    float HitmarkerDuration = 0.3f;
+    float HitmarkerTimer {0.0f};
+    float HitmarkerDuration {0.3f};
+
+    UPROPERTY()
+    TArray<FConfirmNotification> ConfirmNotificationQueue;
+
+    UPROPERTY()
+    TObjectPtr<UConfirmNotificationWidget> CurrentConfirmWidget;
 
     UHUDWidget* UpdateLastLookInput(const FVector2D& LookInput);
     UHUDWidget* SetChargeIconBlink(bool bBlink);
+
+    UFUNCTION()
+    void ProcessNextConfirmNotification();
 };

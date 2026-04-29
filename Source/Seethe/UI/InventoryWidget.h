@@ -105,8 +105,11 @@ protected:
     virtual void NativePreConstruct() override;
     virtual FReply NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
+    void MoveSelection(int32 RowDelta, int32 ColDelta);
+
 private:
     float LookX, LookY;
+    EInventoryCategory CurrentCategory{EInventoryCategory::EIC_Supplies};
 
     void UpdateLookAxes(float X, float Y);
     void InitializeWidget(UInventoryComponent* InInventory);

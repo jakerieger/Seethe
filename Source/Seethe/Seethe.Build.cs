@@ -14,7 +14,7 @@ public class Seethe : ModuleRules
 
 		PublicIncludePaths.AddRange([
 			"Seethe/Interfaces", "Seethe/Inventory", "Seethe/UI", "Seethe/Weapons", "Seethe/Enemies", "Seethe/Tools",
-			"Seethe/Interactables"
+			"Seethe/Interactables", "Seethe/UI/Notifications"
 		]);
 
 		// Uncomment this if you want to visualize line traces

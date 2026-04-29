@@ -3,9 +3,10 @@
 
 #include "ItemPickupBase.h"
 #include "InventoryComponent.h"
-#include "Kismet/GameplayStatics.h"
+#include "PickupAnimData.h"
 #include "Seethe/SeetheCharacter.h"
 #include "Seethe/UI/InteractPopupWidget.h"
+#include "Seethe/UI/HUDWidget.h"
 
 AItemPickupBase::AItemPickupBase() {
     PrimaryActorTick.bCanEverTick = false;
@@ -20,14 +21,28 @@ AItemPickupBase::AItemPickupBase() {
     InteractWidget->SetupAttachment(ItemMesh);
 }
 
-void AItemPickupBase::Interact(ASeetheCharacter* Character) {
+bool AItemPickupBase::Interact(ASeetheCharacter* Character) {
     if (Character) {
-        Character->GetInventory()->AddItem(InventoryItem);
-        if (EquipSound) {
-            UGameplayStatics::PlaySoundAtLocation(this, EquipSound, Character->GetActorLocation());
+        UAnimMontage* PickupMontage = AnimData->GetPickupMontage(Character->HasEquippedItem());
+
+        if (PickupMontage) {
+            if (USkeletalMeshComponent* Arms = Character->GetMesh1P()) {
+                if (UAnimInstance* Anim = Arms->GetAnimInstance()) {
+                    const auto Duration = Anim->Montage_Play(PickupMontage);
+
+                    if (Duration > 0.f) {
+                        FOnMontageEnded EndDelegate;
+                        EndDelegate.BindUObject(this, &AItemPickupBase::OnPickupMontageEnded, Character);
+                        Anim->Montage_SetEndDelegate(EndDelegate, PickupMontage);
+
+                        return true;
+                    }
+                }
+            }
         }
-        Destroy();
     }
+
+    return false;
 }
 
 void AItemPickupBase::LookAt() {
@@ -67,4 +82,27 @@ void AItemPickupBase::BeginPlay() {
     if (InteractPopupWidget) {
         InteractPopupWidget->SetupPrompt(InteractIcon, GetInteractMessage());
     }
+}
+
+void AItemPickupBase::OnPickupMontageEnded(UAnimMontage* Montage, bool bInterrupted, ASeetheCharacter* Character) {
+    Character->GetInventory()->AddItem(InventoryItem);
+    OnItemPickedUp(Character);
+
+    if (UHUDWidget* HUD = Character->GetHUDWidget()) {
+        FConfirmNotification Notification;
+        Notification.Icon    = InventoryItem->ItemIcon;
+        Notification.Title   = InventoryItem->ItemName;
+        Notification.Message = FText::Format(NSLOCTEXT("UI", "Notification", "x{0}"), InventoryItem->Quantity);
+        HUD->PostConfirmNotification(Notification);
+
+        FToastNotification ToastNotification;
+        ToastNotification.Icon    = InventoryItem->ItemIcon;
+        ToastNotification.Message = FText::Format(
+            NSLOCTEXT("UI", "Notification", "Picked up {0} (x{1})"),
+            InventoryItem->ItemName,
+            InventoryItem->Quantity);
+        HUD->PostToastNotification(ToastNotification, 1.5f);
+    }
+
+    Destroy();
 }

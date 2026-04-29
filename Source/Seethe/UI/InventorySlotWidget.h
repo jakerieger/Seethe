@@ -17,6 +17,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnSlotClicked, UInventorySlotWidget
 UCLASS()
 class SEETHE_API UInventorySlotWidget : public UUserWidget {
     GENERATED_BODY()
+    friend class UInventoryWidget;
 
 public:
     UPROPERTY(BlueprintAssignable, Category="Inventory")
@@ -52,6 +53,8 @@ protected:
     NativeOnMouseButtonDoubleClick(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
     virtual void NativeOnMouseEnter(const FGeometry& InGeometry, const FPointerEvent& InMouseEvent) override;
     virtual void NativeOnMouseLeave(const FPointerEvent& InMouseEvent) override;
+    virtual FReply NativeOnFocusReceived(const FGeometry& InGeometry, const FFocusEvent& InFocusEvent) override;
+    virtual void NativeOnFocusLost(const FFocusEvent& InFocusEvent) override;
 
     UFUNCTION()
     void OnSelected();
@@ -60,6 +63,6 @@ protected:
     void OnUse();
 
 private:
-    bool bSlotSelected{false};
-    bool bEmptySlot{true};
+    bool bSlotSelected {false};
+    bool bEmptySlot {true};
 };

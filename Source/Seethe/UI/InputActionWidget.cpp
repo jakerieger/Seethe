@@ -12,7 +12,7 @@ void UInputActionWidget::NativePreConstruct() {
         ActionIcon->SetBrushFromTexture(InIcon);
 
         const auto Size = FVector2D((double)Width, (double)Height);
-        ActionIcon->SetBrushSize(Size);
+        ActionIcon->SetDesiredSizeOverride(Size);
     }
 
     if (ActionPrompt) {

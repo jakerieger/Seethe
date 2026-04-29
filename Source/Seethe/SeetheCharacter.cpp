@@ -13,7 +13,6 @@
 
 #include "Seethe.h"
 #include "Weapons/BaseWeapon.h"
-#include "Interactables/ItemPickupBase.h"
 #include "BaseEquipable.h"
 #include "Inventory/InventoryComponent.h"
 #include "UI/HUDBase.h"
@@ -46,7 +45,7 @@ void ASeetheCharacter::BeginPlay() {
     DefaultCameraLocation = FirstPersonCamera->GetRelativeLocation();
 
     GetHUDWidget()->UpdateHealth(GetHealthPercent())
-                  ->UpdateBatteryChargeState(EBatteryChargeState::BCS_Dead);
+                  ->UpdateBatteryChargeState(EBatteryChargeState::Dead);
 
     GetInventoryWidget()->InitializeWidget(InventoryComponent);
 }
@@ -80,6 +79,12 @@ void ASeetheCharacter::OnLook(const FInputActionValue& Value) {
 void ASeetheCharacter::OnStopLook() {
     GetHUDWidget()->UpdateLastLookInput(FVector2D::ZeroVector);
 }
+
+void ASeetheCharacter::OnEquipCompleted(ABaseEquipable* Equipable) {}
+
+void ASeetheCharacter::OnUnEquipCompleted(ABaseEquipable* Equipable) {}
+
+void ASeetheCharacter::OnDropCompleted(ABaseEquipable* Equipable) {}
 
 void ASeetheCharacter::OnUse(const FInputActionValue&) {
     if (IEquipableInterface* Equipable = GetEquipableInterface()) {
@@ -115,7 +120,7 @@ void ASeetheCharacter::OnToggleInventory(const FInputActionValue&) {
             PC->SetShowMouseCursor(true);
 
             FInputModeUIOnly InputMode;
-            if (UUserWidget* InvWidget = HUD->InventoryWidget) {
+            if (UUserWidget* InvWidget = HUD->GetInventoryWidget()) {
                 InputMode.SetWidgetToFocus(InvWidget->TakeWidget());
             }
             InputMode.SetLockMouseToViewportBehavior(EMouseLockMode::LockInFullscreen);
@@ -125,9 +130,20 @@ void ASeetheCharacter::OnToggleInventory(const FInputActionValue&) {
 }
 
 void ASeetheCharacter::OnInteract(const FInputActionValue&) {
+    if (auto* HUDWidget = GetHUDWidget()) {
+        if (auto* ConfirmWidget = HUDWidget->GetCurrentConfirmWidget()) {
+            ConfirmWidget->ConfirmNotification(false);
+            return;
+        }
+    }
+
     if (CurrentInteractable) {
         CurrentInteractable->Interact(this);
     }
+}
+
+void ASeetheCharacter::OnUnEquip(const FInputActionValue&) {
+    UnEquip();
 }
 
 void ASeetheCharacter::Die() {
@@ -157,16 +173,17 @@ void ASeetheCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
     if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
         EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnMove);
         EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnLook);
-        EnhancedInputComponent->BindAction(UseAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnUse);
-        EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnReload);
+        EnhancedInputComponent->BindAction(UseAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnUse);
+        EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnReload);
         EnhancedInputComponent->BindAction(InteractAction,
-                                           ETriggerEvent::Triggered,
+                                           ETriggerEvent::Started,
                                            this,
                                            &ASeetheCharacter::OnInteract);
         EnhancedInputComponent->BindAction(InventoryAction,
-                                           ETriggerEvent::Triggered,
+                                           ETriggerEvent::Started,
                                            this,
                                            &ASeetheCharacter::OnToggleInventory);
+        EnhancedInputComponent->BindAction(UnEquipAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnUnEquip);
 
         EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Completed, this, &ASeetheCharacter::OnStopLook);
         EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Canceled, this, &ASeetheCharacter::OnStopLook);
@@ -179,12 +196,23 @@ UInventoryComponent* ASeetheCharacter::GetInventory() { return InventoryComponen
 ABaseEquipable* ASeetheCharacter::GetCurrentEquipable() { return CurrentEquipable; }
 ABaseWeapon* ASeetheCharacter::GetCurrentWeapon() { return Cast<ABaseWeapon>(CurrentEquipable); }
 
+bool ASeetheCharacter::HasEquippedItem() const {
+    return CurrentEquipable != nullptr;
+}
+
 float ASeetheCharacter::GetHealthPercent() const { return CurrentHealth / 100.f; }
+
+AHUDBase* ASeetheCharacter::GetHUDInstance() const {
+    if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
+        return Cast<AHUDBase>(PC->GetHUD());
+    }
+    return nullptr;
+}
 
 UHUDWidget* ASeetheCharacter::GetHUDWidget() const {
     if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
-        if (AHUDBase* HUD = Cast<AHUDBase>(PC->GetHUD())) {
-            return HUD->HUDWidget;
+        if (const AHUDBase* HUD = Cast<AHUDBase>(PC->GetHUD())) {
+            return HUD->GetHUDWidget();
         }
     }
 
@@ -193,8 +221,8 @@ UHUDWidget* ASeetheCharacter::GetHUDWidget() const {
 
 UInventoryWidget* ASeetheCharacter::GetInventoryWidget() const {
     if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
-        if (AHUDBase* HUD = Cast<AHUDBase>(PC->GetHUD())) {
-            return HUD->InventoryWidget;
+        if (const AHUDBase* HUD = Cast<AHUDBase>(PC->GetHUD())) {
+            return HUD->GetInventoryWidget();
         }
     }
 
@@ -218,35 +246,66 @@ float ASeetheCharacter::TakeDamage(const float DamageAmount,
 }
 
 void ASeetheCharacter::Equip(const UInventoryItemEquipable* Item) {
-    if (CurrentEquipable) {
+    if (CurrentEquipable && CurrentEquipable->GetClass() == Item->EquipableClass) {
         return;
     }
 
-    FActorSpawnParameters SpawnInfo;
-    SpawnInfo.Owner      = this;
-    SpawnInfo.Instigator = GetInstigator();
+    if (CurrentEquipable) {
+        CurrentEquipable->SetActorHiddenInGame(true);
+    }
 
-    ABaseEquipable* NewEquipable = GetWorld()->SpawnActor<ABaseEquipable>(
-        Item->EquipableClass,
-        GetActorLocation(),
-        GetActorRotation(),
-        SpawnInfo);
+    ABaseEquipable* TargetEquipable = CachedEquipables.FindRef(Item->EquipableClass);
+    if (!TargetEquipable) {
+        FActorSpawnParameters SpawnInfo;
+        SpawnInfo.Owner      = this;
+        SpawnInfo.Instigator = GetInstigator();
 
-    if (NewEquipable) {
-        CurrentEquipable = NewEquipable;
-        CurrentEquipable->Equip(this);
-        if (CurrentEquipable->CrosshairTexture) {
-            GetHUDWidget()->SetCrosshairTexture(CurrentEquipable->CrosshairTexture)
-                          ->ShowCrosshair();
-        }
+        TargetEquipable = GetWorld()->SpawnActor<ABaseEquipable>(
+            Item->EquipableClass,
+            GetActorLocation(),
+            GetActorRotation(),
+            SpawnInfo);
+
+        CachedEquipables.Add(Item->EquipableClass, TargetEquipable);
+    }
+
+    CurrentEquipable = TargetEquipable;
+    CurrentEquipable->OnEquipped.AddDynamic(this, &ASeetheCharacter::OnEquipCompleted);
+    CurrentEquipable->OnUnEquipped.AddDynamic(this, &ASeetheCharacter::OnUnEquipCompleted);
+    CurrentEquipable->OnDropped.AddDynamic(this, &ASeetheCharacter::OnDropCompleted);
+    CurrentEquipable->Equip(this);
+
+    if (CurrentEquipable->CrosshairTexture) {
+        GetHUDWidget()
+            ->SetCrosshairTexture(CurrentEquipable->CrosshairTexture)
+            ->ShowCrosshair();
+    }
+
+    if (const UHUDWidget* HUD = GetHUDWidget()) {
+        FToastNotification Notification;
+        Notification.Icon    = Item->ItemIcon;
+        Notification.Message = FText::Format(NSLOCTEXT("UI", "Notification", "Equipped {0}"), Item->ItemName);
+        HUD->PostToastNotification(Notification, 1.5f);
+    }
+}
+
+void ASeetheCharacter::UnEquip() {
+    if (!CurrentEquipable) { return; }
+
+    CurrentEquipable->UnEquip(this);
+    CurrentEquipable = nullptr;
+
+    if (UHUDWidget* HUD = GetHUDWidget()) {
+        HUD->HideCrosshair();
     }
 }
 
 void ASeetheCharacter::Drop() {
     if (!CurrentEquipable) { return; }
 
+    CachedEquipables.Remove(CurrentEquipable->GetClass());
+
     CurrentEquipable->Drop(this);
-    CurrentEquipable->Destroy();
     CurrentEquipable = nullptr;
 
     GetHUDWidget()->HideCrosshair();

@@ -3,6 +3,7 @@
 
 #include "HUDWidget.h"
 #include "Components/CanvasPanelSlot.h"
+#include "Components/VerticalBoxSlot.h"
 
 void UHUDWidget::NativeConstruct() {
     Super::NativeConstruct();
@@ -52,20 +53,20 @@ UHUDWidget* UHUDWidget::UpdateBatteryChargeState(const EBatteryChargeState State
     SetChargeIconBlink(false);
 
     switch (State) {
-        case EBatteryChargeState::BCS_Dead: {
+        case EBatteryChargeState::Dead: {
             BatteryIcon->SetBrushFromTexture(BatteryDeadIcon);
             SetChargeIconBlink(true);
             break;
         }
-        case EBatteryChargeState::BCS_Low: {
+        case EBatteryChargeState::LowCharge: {
             BatteryIcon->SetBrushFromTexture(BatteryLowChargeIcon);
             break;
         }
-        case EBatteryChargeState::BCS_Mid: {
+        case EBatteryChargeState::MidCharge: {
             BatteryIcon->SetBrushFromTexture(BatteryMidChargeIcon);
             break;
         }
-        case EBatteryChargeState::BCS_Full: {
+        case EBatteryChargeState::FullCharge: {
             BatteryIcon->SetBrushFromTexture(BatteryFullChargeIcon);
             break;
         }
@@ -77,6 +78,54 @@ UHUDWidget* UHUDWidget::UpdateBatteryChargeState(const EBatteryChargeState State
 UHUDWidget* UHUDWidget::SetChargeIconColor(const FColor& Color) {
     ChargeIcon->SetColorAndOpacity(Color);
     return this;
+}
+
+void UHUDWidget::PostToastNotification(const FToastNotification& Notification, const float Duration) const {
+    if (ToastNotificationContainer && ToastNotificationWidgetClass) {
+        UToastNotificationWidget* NewWidget = CreateWidget<UToastNotificationWidget>(
+            GetOwningPlayer(),
+            ToastNotificationWidgetClass);
+        if (NewWidget) {
+            UVerticalBoxSlot* NewSlot = ToastNotificationContainer->AddChildToVerticalBox(NewWidget);
+            if (NewSlot) {
+                NewSlot->SetPadding(FMargin(0, 0, 0, 8.f));
+                NewWidget->BeginNotification(Notification, Duration);
+                NewWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
+            }
+        }
+    }
+}
+
+void UHUDWidget::PostConfirmNotification(const FConfirmNotification& Notification) {
+    ConfirmNotificationQueue.Add(Notification);
+
+    if (CurrentConfirmWidget == nullptr) {
+        ProcessNextConfirmNotification();
+    }
+}
+
+UConfirmNotificationWidget* UHUDWidget::GetCurrentConfirmWidget() {
+    return CurrentConfirmWidget;
+}
+
+void UHUDWidget::ProcessNextConfirmNotification() {
+    if (ConfirmNotificationQueue.IsEmpty()) {
+        if (CurrentConfirmWidget) {
+            CurrentConfirmWidget->RemoveFromParent();
+        }
+        CurrentConfirmWidget = nullptr;
+        return;
+    }
+
+    const FConfirmNotification ConfirmNotification = ConfirmNotificationQueue[0];
+    ConfirmNotificationQueue.RemoveAt(0);
+
+    CurrentConfirmWidget = CreateWidget<UConfirmNotificationWidget>(GetOwningPlayer(), ConfirmNotificationWidgetClass);
+    if (CurrentConfirmWidget) {
+        CurrentConfirmWidget->BeginNotification(ConfirmNotification);
+        ConfirmNotificationContainer->SetContent(CurrentConfirmWidget);
+        CurrentConfirmWidget->OnConfirmed.AddDynamic(this, &UHUDWidget::ProcessNextConfirmNotification);
+    }
 }
 
 void UHUDWidget::NativeTick(const FGeometry& Geometry, const float TimeDelta) {

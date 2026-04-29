@@ -12,10 +12,21 @@ void UBatteryItem::Use_Implementation(ASeetheCharacter* Character,
                                       const EInventoryCategory& Category) {
     if (Character) {
         auto* Current = Character->GetCurrentEquipable();
-        if (AFlashlightTool* Flashlight = Cast<AFlashlightTool>(Current)) {
+        if (Current && Current->IsA(AFlashlightTool::StaticClass())) {
+            AFlashlightTool* Flashlight = Cast<AFlashlightTool>(Current);
             Flashlight->Recharge(Seethe::Constants::kBatteryChargeAmount);
+            Super::Use_Implementation(Character, Index, Category);
+        }
+    }
+}
+
+bool UBatteryItem::CanUse_Implementation(ASeetheCharacter* Character, int32 Index, const EInventoryCategory& Category) {
+    if (Character) {
+        const auto* Current = Character->GetCurrentEquipable();
+        if (Current && Current->IsA(AFlashlightTool::StaticClass())) {
+            return true;
         }
     }
 
-    Super::Use_Implementation(Character, Index, Category);
+    return false;
 }

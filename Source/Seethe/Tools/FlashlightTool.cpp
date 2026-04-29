@@ -13,6 +13,11 @@ AFlashlightTool::AFlashlightTool() {
     LightComponent->SetVisibility(false);
 }
 
+void AFlashlightTool::UnEquip(ASeetheCharacter* Character) {
+    OnPowerMontageEnded(nullptr, false, false);
+    Super::UnEquip(Character);
+}
+
 void AFlashlightTool::Use(ASeetheCharacter* Character) {
     SetOn(!IsOn());
 }
@@ -50,16 +55,16 @@ void AFlashlightTool::Recharge(const float Amount) {
     }
 
     if (BatteryLife <= 33.0f) {
-        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Low);
+        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::LowCharge);
     } else if (BatteryLife <= 67.0f) {
-        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Mid);
+        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::MidCharge);
     } else {
-        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Full);
+        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::FullCharge);
     }
 
     if (BatteryLife < 0.0f) {
         BatteryLife = 0.0f;
-        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Dead);
+        PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::Dead);
     }
 }
 
@@ -84,16 +89,16 @@ void AFlashlightTool::UpdateBatteryLife() {
             BatteryLife -= BatteryDrainRate;
 
             if (BatteryLife <= 33.0f) {
-                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Low);
+                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::LowCharge);
             } else if (BatteryLife <= 67.0f) {
-                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Mid);
+                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::MidCharge);
             } else {
-                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Full);
+                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::FullCharge);
             }
         } else {
             BatteryLife = 0.0f;
             SetOn(false);
-            PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::BCS_Dead);
+            PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::Dead);
         }
     }
 }

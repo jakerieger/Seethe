@@ -95,7 +95,7 @@ void UInventoryComponent::BeginPlay() {
 bool UInventoryComponent::CanUseItem(const int32 Index, const EInventoryCategory& Category) {
     auto& [Slots, UsedSlots] = InventoryCategories.FindOrAdd(Category);
     if (Slots.IsValidIndex(Index)) {
-        return Slots[Index].bCanUse;
+        return Slots[Index].ItemData->CanUse(Cast<ASeetheCharacter>(GetOwner()), Index, Category);
     }
 
     return false;

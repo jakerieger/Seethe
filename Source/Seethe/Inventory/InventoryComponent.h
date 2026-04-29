@@ -51,7 +51,6 @@ public:
     UFUNCTION(BlueprintCallable, Category="Inventory")
     TArray<FInventorySlot>& GetSlots(const EInventoryCategory& Category);
 
-protected:
     virtual void BeginPlay() override;
 
 private:

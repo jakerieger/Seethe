@@ -108,7 +108,7 @@ FReply UInventoryWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, con
 
     if (Key == EKeys::Tab || Key == EKeys::Gamepad_Special_Right) {
         if (const auto* HUD = Cast<AHUDBase>(GetOwningPlayer()->GetHUD())) {
-            HUD->GetInventoryItem3dPreview()->SetVisible(false);
+            HUD->GetPreviewActor()->SetVisible(false);
         }
 
         if (auto* SC = Cast<ASeetheCharacter>(GetOwningPlayerPawn())) {
@@ -132,7 +132,68 @@ FReply UInventoryWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, con
         }
     }
 
+    // Navigate categories with gamepad
+    if (Key == EKeys::Gamepad_LeftShoulder || Key == EKeys::Gamepad_RightShoulder
+        || Key == EKeys::A || Key == EKeys::D) {
+        int32 CurrentIndex       = CategoryWidgetSwitcher->GetActiveWidgetIndex();
+        constexpr int32 MaxIndex = static_cast<int32>(EInventoryCategory::NUM_CATEGORIES) - 1;
+
+        if (Key == EKeys::Gamepad_LeftShoulder || Key == EKeys::A) {
+            CurrentIndex = (CurrentIndex <= 0) ? MaxIndex : CurrentIndex - 1;
+        } else {
+            CurrentIndex = (CurrentIndex >= MaxIndex) ? 0 : CurrentIndex + 1;
+        }
+
+        OnCategoryChanged(static_cast<EInventoryCategory>(CurrentIndex));
+        return FReply::Handled();
+    }
+
+    if (Key == EKeys::Gamepad_DPad_Up || Key == EKeys::Up) {
+        MoveSelection(-1, 0);
+        return FReply::Handled();
+    }
+    if (Key == EKeys::Gamepad_DPad_Down || Key == EKeys::Down) {
+        MoveSelection(1, 0);
+        return FReply::Handled();
+    }
+    if (Key == EKeys::Gamepad_DPad_Left || Key == EKeys::Left) {
+        MoveSelection(0, -1);
+        return FReply::Handled();
+    }
+    if (Key == EKeys::Gamepad_DPad_Right || Key == EKeys::Right) {
+        MoveSelection(0, 1);
+        return FReply::Handled();
+    }
+
+    if (Key == EKeys::Gamepad_FaceButton_Bottom) {
+        if (CurrentlySelectedSlot) {
+            CurrentlySelectedSlot->OnUse();
+            return FReply::Handled();
+        }
+    }
+
     return Super::NativeOnPreviewKeyDown(InGeometry, InKeyEvent);
+}
+
+void UInventoryWidget::MoveSelection(const int32 RowDelta, const int32 ColDelta) {
+    if (!CurrentlySelectedSlot) {
+        OnSlotClicked(SlotWidgets[CurrentCategory].Widgets[0]);
+        return;
+    }
+
+    const int32 CurrentIdx = CurrentlySelectedSlot->ItemIndex;
+    const int32 CurrentRow = CurrentIdx / kColumns;
+    const int32 CurrentCol = CurrentIdx % kColumns;
+
+    const int32 NewRow = FMath::Clamp(CurrentRow + RowDelta, 0, (kInventorySize / kColumns) - 1);
+    const int32 NewCol = FMath::Clamp(CurrentCol + ColDelta, 0, kColumns - 1);
+    const int32 NewIdx = (NewRow * kColumns) + NewCol;
+
+    UInventorySlotWidget* TargetSlot = SlotWidgets[CurrentCategory].Widgets[NewIdx];
+    if (TargetSlot) {
+        OnSlotClicked(TargetSlot);
+        TargetSlot->SetFocus();
+    }
 }
 
 void UInventoryWidget::InitializeWidget(UInventoryComponent* InInventory) {
@@ -181,15 +242,16 @@ void UInventoryWidget::OnSlotClicked(UInventorySlotWidget* SlotWidget) {
 
         if (const auto* PC = GetOwningPlayer()) {
             if (const auto* HUD = Cast<AHUDBase>(PC->GetHUD())) {
-                HUD->GetInventoryItem3dPreview()->SetupPreview(ItemData->ItemPreviewMesh,
-                                                               ItemData->ItemPreviewTransform);
-                HUD->GetInventoryItem3dPreview()->SetVisible(true);
+                HUD->GetPreviewActor()->SetupPreview(ItemData->ItemPreviewMesh,
+                                                     ItemData->ItemPreviewTransform);
+                HUD->GetPreviewActor()->SetVisible(true);
             }
         }
     }
 }
 
 void UInventoryWidget::OnCategoryChanged(const EInventoryCategory& Category) {
+    CurrentCategory = Category;
     CategoryWidgetSwitcher->SetActiveWidgetIndex(static_cast<int32>(Category));
 
     const auto OtherButtonStyle = GetCategoryButtonStyle();

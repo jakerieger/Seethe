@@ -6,9 +6,12 @@
 #include "InventoryWidget.h"
 #include "InventoryItem3dPreview.h"
 #include "Blueprint/UserWidget.h"
-#include "Components/SceneCaptureComponent2D.h"
 
 void AHUDBase::ShowInventory() const {
+    if (auto* Confirm = HUDWidget->GetCurrentConfirmWidget()) {
+        Confirm->ConfirmNotification(true);
+    }
+
     HUDWidget->SetVisibility(ESlateVisibility::Hidden);
     InventoryWidget->SetVisibility(ESlateVisibility::Visible);
 }
@@ -20,10 +23,6 @@ void AHUDBase::HideInventory() const {
 
 bool AHUDBase::IsInventoryOpen() const {
     return InventoryWidget->IsVisible();
-}
-
-AInventoryItem3dPreview* AHUDBase::GetInventoryItem3dPreview() const {
-    return PreviewActor;
 }
 
 void AHUDBase::BeginPlay() {
@@ -56,11 +55,14 @@ void AHUDBase::EndPlay(const EEndPlayReason::Type EndPlayReason) {
     if (HUDWidget) {
         HUDWidget->RemoveFromParent();
     }
+
     if (InventoryWidget) {
         InventoryWidget->RemoveFromParent();
     }
+
     if (PreviewActor) {
         PreviewActor->Destroy();
     }
+
     Super::EndPlay(EndPlayReason);
 }

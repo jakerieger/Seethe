@@ -19,6 +19,7 @@ class SEETHE_API AFlashlightTool : public ABaseEquipable {
 public:
     AFlashlightTool();
 
+    virtual void UnEquip(ASeetheCharacter* Character) override;
     virtual void Use(ASeetheCharacter* Character) override;
 
     UFUNCTION(BlueprintCallable, Category="Flashlight")
@@ -44,9 +45,9 @@ public:
     TObjectPtr<UAnimMontage> PowerMontage;
 
 private:
-    float BatteryLife{33.3f};
+    float BatteryLife {33.3f};
     /** Battery life is 5 minutes. This value represents how much to drain the battery EACH SECOND. **/
-    float BatteryDrainRate{0.333333f};
+    float BatteryDrainRate {0.333333f};
 
     UFUNCTION()
     void OnPowerMontageEnded(UAnimMontage* Montage, bool bInterrupted, bool bFlashlightOn) const;

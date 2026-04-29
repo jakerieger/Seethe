@@ -18,6 +18,7 @@ class SEETHE_API IEquipableInterface {
 
 public:
     virtual void Equip(ASeetheCharacter* Character) = 0;
+    virtual void UnEquip(ASeetheCharacter* Character) = 0;
     virtual void Drop(ASeetheCharacter* Character) = 0;
     virtual void Use(ASeetheCharacter* Character) = 0;
 };

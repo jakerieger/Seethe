@@ -2,6 +2,8 @@
 
 
 #include "InventorySlotWidget.h"
+
+#include "Kismet/GameplayStatics.h"
 #include "Seethe/SeetheCharacter.h"
 
 void UInventorySlotWidget::SetupSlot(const FInventorySlot& InItem, const int32 InIndex) {
@@ -85,13 +87,27 @@ void UInventorySlotWidget::NativeOnMouseLeave(const FPointerEvent& InMouseEvent)
     }
 }
 
+FReply UInventorySlotWidget::NativeOnFocusReceived(const FGeometry& InGeometry, const FFocusEvent& InFocusEvent) {
+    if (bEmptySlot) { return FReply::Unhandled(); }
+    OnSelected();
+    return Super::NativeOnFocusReceived(InGeometry, InFocusEvent);
+}
+
+void UInventorySlotWidget::NativeOnFocusLost(const FFocusEvent& InFocusEvent) {
+    if (!bSlotSelected) {
+        ItemBorder->SetBrushColor(FLinearColor::White.CopyWithNewOpacity(0.1f));
+        ItemBackground->SetColorAndOpacity(FLinearColor::Black.CopyWithNewOpacity(0.4f));
+    }
+    Super::NativeOnFocusLost(InFocusEvent);
+}
+
 void UInventorySlotWidget::OnSelected() {
     if (bEmptySlot) { return; }
     OnSlotClicked.Broadcast(this);
 }
 
 void UInventorySlotWidget::OnUse() {
-    if (!bSlotSelected || !Item.bCanUse || bEmptySlot) { return; }
+    if (!bSlotSelected || bEmptySlot) { return; }
 
     ASeetheCharacter* SC = Cast<ASeetheCharacter>(GetOwningPlayerPawn());
     if (SC) {

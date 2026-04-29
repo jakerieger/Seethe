@@ -15,7 +15,7 @@ class SEETHE_API IInteractableInterface {
     GENERATED_BODY()
 
 public:
-    virtual void Interact(class ASeetheCharacter* Character) = 0;
+    virtual bool Interact(class ASeetheCharacter* Character) = 0;
     virtual void LookAt() = 0;
     virtual void LookAway() = 0;
     virtual FText GetInteractMessage() = 0;

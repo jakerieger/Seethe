@@ -13,4 +13,7 @@ class SEETHE_API UBatteryItem : public UInventoryItem {
 public:
     virtual void
     Use_Implementation(ASeetheCharacter* Character, int32 Index, const EInventoryCategory& Category) override;
+
+    virtual bool
+    CanUse_Implementation(ASeetheCharacter* Character, int32 Index, const EInventoryCategory& Category) override;
 };
