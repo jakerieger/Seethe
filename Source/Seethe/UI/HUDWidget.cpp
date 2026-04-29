@@ -22,7 +22,11 @@ UHUDWidget* UHUDWidget::UpdateHealth(const float HealthPercentage) {
 }
 
 UHUDWidget* UHUDWidget::SetCrosshairTexture(UTexture2D* CrosshairTexture) {
-    if (CrosshairTexture) { WeaponCrosshairImage->SetBrushFromTexture(CrosshairTexture); }
+    if (CrosshairTexture) {
+        WeaponCrosshairImage->SetBrushFromTexture(CrosshairTexture);
+    } else {
+        HideCrosshair();
+    }
     return this;
 }
 

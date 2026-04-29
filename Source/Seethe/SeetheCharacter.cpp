@@ -80,12 +80,6 @@ void ASeetheCharacter::OnStopLook() {
     GetHUDWidget()->UpdateLastLookInput(FVector2D::ZeroVector);
 }
 
-void ASeetheCharacter::OnEquipCompleted(ABaseEquipable* Equipable) {}
-
-void ASeetheCharacter::OnUnEquipCompleted(ABaseEquipable* Equipable) {}
-
-void ASeetheCharacter::OnDropCompleted(ABaseEquipable* Equipable) {}
-
 void ASeetheCharacter::OnUse(const FInputActionValue&) {
     if (IEquipableInterface* Equipable = GetEquipableInterface()) {
         Equipable->Use(this);
@@ -252,6 +246,7 @@ void ASeetheCharacter::Equip(const UInventoryItemEquipable* Item) {
 
     if (CurrentEquipable) {
         CurrentEquipable->SetActorHiddenInGame(true);
+        GetHUDWidget()->HideCrosshair();
     }
 
     ABaseEquipable* TargetEquipable = CachedEquipables.FindRef(Item->EquipableClass);
@@ -270,9 +265,6 @@ void ASeetheCharacter::Equip(const UInventoryItemEquipable* Item) {
     }
 
     CurrentEquipable = TargetEquipable;
-    CurrentEquipable->OnEquipped.AddDynamic(this, &ASeetheCharacter::OnEquipCompleted);
-    CurrentEquipable->OnUnEquipped.AddDynamic(this, &ASeetheCharacter::OnUnEquipCompleted);
-    CurrentEquipable->OnDropped.AddDynamic(this, &ASeetheCharacter::OnDropCompleted);
     CurrentEquipable->Equip(this);
 
     if (CurrentEquipable->CrosshairTexture) {

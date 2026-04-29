@@ -15,7 +15,7 @@
 class UInventoryItemData;
 class UInventoryComponent;
 
-inline constexpr int32 kColumns{5};
+inline constexpr int32 kColumns {5};
 
 USTRUCT(BlueprintType)
 struct FInventoryWidgetCategory {
@@ -103,13 +103,16 @@ protected:
 
     virtual void NativeConstruct() override;
     virtual void NativePreConstruct() override;
-    virtual FReply NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+    virtual FReply NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
+    virtual FReply NativeOnKeyUp(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) override;
 
     void MoveSelection(int32 RowDelta, int32 ColDelta);
 
 private:
     float LookX, LookY;
-    EInventoryCategory CurrentCategory{EInventoryCategory::EIC_Supplies};
+    EInventoryCategory CurrentCategory {EInventoryCategory::EIC_Supplies};
+
+    TMap<FKey, bool> KeyStates;
 
     void UpdateLookAxes(float X, float Y);
     void InitializeWidget(UInventoryComponent* InInventory);

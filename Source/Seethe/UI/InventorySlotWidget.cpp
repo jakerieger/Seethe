@@ -17,6 +17,7 @@ void UInventorySlotWidget::SetupSlot(const FInventorySlot& InItem, const int32 I
     ItemIcon->SetVisibility(ESlateVisibility::Visible);
     ItemQuantity->SetVisibility(ESlateVisibility::Visible);
 
+    RefreshEnabledState();
     SetSelected(false);
 }
 
@@ -99,6 +100,19 @@ void UInventorySlotWidget::NativeOnFocusLost(const FFocusEvent& InFocusEvent) {
         ItemBackground->SetColorAndOpacity(FLinearColor::Black.CopyWithNewOpacity(0.4f));
     }
     Super::NativeOnFocusLost(InFocusEvent);
+}
+
+void UInventorySlotWidget::RefreshEnabledState() {
+    if (bEmptySlot || !Item.ItemData) {
+        SetRenderOpacity(1.0f);
+        return;
+    }
+
+    ASeetheCharacter* SC = Cast<ASeetheCharacter>(GetOwningPlayerPawn());
+    if (SC) {
+        const bool bCanUse = Item.ItemData->CanUse(SC, ItemIndex, Item.ItemData->ItemCategory);
+        SetRenderOpacity(bCanUse ? 1.0f : 0.2f);
+    }
 }
 
 void UInventorySlotWidget::OnSelected() {

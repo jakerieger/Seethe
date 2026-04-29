@@ -2,6 +2,8 @@
 
 
 #include "BaseEquipable.h"
+
+#include "FirstPersonAnimInstance.h"
 #include "Seethe/SeetheCharacter.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -22,10 +24,8 @@ void ABaseEquipable::Equip(ASeetheCharacter* Character) {
         AttachToComponent(Arms, AttachmentRules, FName("S_Attach"));
         Mesh1P->SetRelativeTransform(AttachOffset);
 
-        if (UAnimInstance* AnimInstance = Arms->GetAnimInstance()) {
-            if (EquipableAnimLayer) {
-                AnimInstance->LinkAnimClassLayers(EquipableAnimLayer);
-            }
+        if (UFirstPersonAnimInstance* AnimInstance = Cast<UFirstPersonAnimInstance>(Arms->GetAnimInstance())) {
+            AnimInstance->UpdateLocomotionSequences(AnimData);
 
             if (EquipMontage) {
                 const auto Duration = AnimInstance->Montage_Play(EquipMontage);
@@ -46,11 +46,7 @@ void ABaseEquipable::UnEquip(ASeetheCharacter* Character) {
     if (!Character) { return; }
 
     if (const auto* Arms = Character->GetMesh1P()) {
-        if (UAnimInstance* AnimInstance = Arms->GetAnimInstance()) {
-            if (EquipableAnimLayer) {
-                AnimInstance->UnlinkAnimClassLayers(EquipableAnimLayer);
-            }
-
+        if (UFirstPersonAnimInstance* AnimInstance = Cast<UFirstPersonAnimInstance>(Arms->GetAnimInstance())) {
             if (UnEquipMontage) {
                 const auto Duration = AnimInstance->Montage_Play(UnEquipMontage);
                 if (Duration > 0.f) {
@@ -70,7 +66,7 @@ void ABaseEquipable::Drop(ASeetheCharacter* Character) {
     if (!Character) { return; }
 
     if (const auto* Arms = Character->GetMesh1P()) {
-        if (UAnimInstance* AnimInstance = Arms->GetAnimInstance()) {
+        if (UFirstPersonAnimInstance* AnimInstance = Cast<UFirstPersonAnimInstance>(Arms->GetAnimInstance())) {
             if (DropMontage) {
                 const auto Duration = AnimInstance->Montage_Play(DropMontage);
                 if (Duration > 0.f) {
@@ -91,45 +87,26 @@ USkeletalMeshComponent* ABaseEquipable::GetMesh1P() const {
 }
 
 void ABaseEquipable::OnEquipMontageEnded(UAnimMontage*,
-                                         bool) {
-    if (OnEquipped.IsBound()) {
-        OnEquipped.Broadcast(this);
-    }
-}
+                                         bool) {}
 
 void ABaseEquipable::OnUnEquipMontageEnded(UAnimMontage*,
                                            bool,
-                                           UAnimInstance* InAnimInstance) {
+                                           UFirstPersonAnimInstance* InAnimInstance) {
     if (InAnimInstance) {
         InAnimInstance->StopAllMontages(0.2f);
+        InAnimInstance->SetDefaultLocomotion();
     }
 
     SetActorHiddenInGame(true);
-
-    if (OnUnEquipped.IsBound()) {
-        OnUnEquipped.Broadcast(this);
-    }
-
-    OnEquipped.Clear();
-    OnUnEquipped.Clear();
-    OnDropped.Clear();
 }
 
 void ABaseEquipable::OnDropMontageEnded(UAnimMontage*,
                                         bool,
-                                        UAnimInstance* InAnimInstance) {
+                                        UFirstPersonAnimInstance* InAnimInstance) {
     if (InAnimInstance) {
         InAnimInstance->StopAllMontages(0.2f);
-        InAnimInstance->UnlinkAnimClassLayers(EquipableAnimLayer);
+        InAnimInstance->SetDefaultLocomotion();
     }
-
-    if (OnDropped.IsBound()) {
-        OnDropped.Broadcast(this);
-    }
-
-    OnEquipped.Clear();
-    OnUnEquipped.Clear();
-    OnDropped.Clear();
 
     SetActorHiddenInGame(true);
     DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);

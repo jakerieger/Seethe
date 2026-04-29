@@ -25,6 +25,19 @@ void UInventoryItem::Use_Implementation(ASeetheCharacter* Character, int32 Index
     if (UseSound) {
         UGameplayStatics::PlaySoundAtLocation(Character->GetWorld(), UseSound, Character->GetActorLocation());
     }
+
+    if (const UHUDWidget* HUD = Character->GetHUDWidget()) {
+        if (Category == EInventoryCategory::EIC_Supplies) {
+            FToastNotification Notification;
+            Notification.Icon = ItemIcon;
+            const auto Fmt    = FText::Format(
+                NSLOCTEXT("UI", "Notification", "Used {0} (x1)"),
+                ItemName);
+
+            Notification.Message = Fmt;
+            HUD->PostToastNotification(Notification);
+        }
+    }
 }
 
 void UInventoryItem::UseMultiple_Implementation(ASeetheCharacter* Character,

@@ -172,13 +172,4 @@ private:
 
     UFUNCTION()
     void OnStopLook();
-
-    UFUNCTION()
-    void OnEquipCompleted(ABaseEquipable* Equipable);
-
-    UFUNCTION()
-    void OnUnEquipCompleted(ABaseEquipable* Equipable);
-
-    UFUNCTION()
-    void OnDropCompleted(ABaseEquipable* Equipable);
 };

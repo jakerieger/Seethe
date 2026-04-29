@@ -101,12 +101,18 @@ void UInventoryWidget::NativePreConstruct() {
     Super::NativePreConstruct();
     ItemNameText->SetText(FText());
     ItemDescText->SetText(FText());
+
+    KeyStates.Add(EKeys::Tab, false);
+    KeyStates.Add(EKeys::Gamepad_Special_Right, false);
 }
 
-FReply UInventoryWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) {
+FReply UInventoryWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) {
     const auto Key = InKeyEvent.GetKey();
 
     if (Key == EKeys::Tab || Key == EKeys::Gamepad_Special_Right) {
+        const bool bIsDown = KeyStates.FindRef(Key);
+        if (bIsDown) { return FReply::Handled(); }
+
         if (const auto* HUD = Cast<AHUDBase>(GetOwningPlayer()->GetHUD())) {
             HUD->GetPreviewActor()->SetVisible(false);
         }
@@ -115,6 +121,8 @@ FReply UInventoryWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, con
             const FInputActionValue Value(Key);
             SC->OnToggleInventory(Value);
         }
+
+        KeyStates[Key] = true;
 
         return FReply::Handled();
     }
@@ -175,9 +183,28 @@ FReply UInventoryWidget::NativeOnPreviewKeyDown(const FGeometry& InGeometry, con
     return Super::NativeOnPreviewKeyDown(InGeometry, InKeyEvent);
 }
 
+FReply UInventoryWidget::NativeOnKeyUp(const FGeometry& InGeometry, const FKeyEvent& InKeyEvent) {
+    const auto Key = InKeyEvent.GetKey();
+
+    if (Key == EKeys::Tab || Key == EKeys::Gamepad_Special_Right) {
+        KeyStates[Key] = false;
+    }
+
+    return Super::NativeOnKeyUp(InGeometry, InKeyEvent);
+}
+
 void UInventoryWidget::MoveSelection(const int32 RowDelta, const int32 ColDelta) {
     if (!CurrentlySelectedSlot) {
-        OnSlotClicked(SlotWidgets[CurrentCategory].Widgets[0]);
+        const auto& First = SlotWidgets[CurrentCategory].Widgets[0];
+        if (First->bEmptySlot) {
+            return;
+        }
+        OnSlotClicked(First);
+        return;
+    }
+
+    // This SHOULDN'T be possible, but just in case.
+    if (CurrentlySelectedSlot->bEmptySlot) {
         return;
     }
 
@@ -192,7 +219,6 @@ void UInventoryWidget::MoveSelection(const int32 RowDelta, const int32 ColDelta)
     UInventorySlotWidget* TargetSlot = SlotWidgets[CurrentCategory].Widgets[NewIdx];
     if (TargetSlot) {
         OnSlotClicked(TargetSlot);
-        TargetSlot->SetFocus();
     }
 }
 
@@ -258,8 +284,8 @@ void UInventoryWidget::OnCategoryChanged(const EInventoryCategory& Category) {
     auto SelectedButtonStyle    = OtherButtonStyle;
     SelectedButtonStyle.Normal  = OtherButtonStyle.Hovered;
 
-    TStaticArray<UButton*, 3> OtherButtons{nullptr, nullptr, nullptr};
-    TStaticArray<UImage*, 3> OtherIcons{nullptr, nullptr, nullptr};
+    TStaticArray<UButton*, 3> OtherButtons {nullptr, nullptr, nullptr};
+    TStaticArray<UImage*, 3> OtherIcons {nullptr, nullptr, nullptr};
 
     switch (Category) {
         case EInventoryCategory::EIC_Supplies: {
@@ -350,7 +376,7 @@ FButtonStyle UInventoryWidget::GetCategoryButtonStyle() {
     FSlateBrush NormalBrush;
     NormalBrush.TintColor = FSlateColor(FLinearColor::Black.CopyWithNewOpacity(0.0f));
     NormalBrush.DrawAs    = ESlateBrushDrawType::Box;
-    NormalBrush.ImageSize = FVector2D{80.f, 80.f};
+    NormalBrush.ImageSize = FVector2D {80.f, 80.f};
     NormalBrush.SetResourceObject(nullptr);
 
     FSlateBrush HoveredBrush = NormalBrush;
