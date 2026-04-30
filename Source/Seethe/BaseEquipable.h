@@ -17,6 +17,7 @@ class SEETHE_API ABaseEquipable : public AActor, public IEquipableInterface {
 
 public:
     ABaseEquipable();
+    virtual void Tick(float DeltaSeconds) override;
 
     /** IEquipableInterface overrides **/
     virtual void Equip(ASeetheCharacter* Character) override;
@@ -27,6 +28,9 @@ public:
     /** Properties **/
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Equipable")
     FTransform AttachOffset;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Equipable")
+    FName LeftHandSocket {"S_Grip_L"};
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Equipable")
     TObjectPtr<UFirstPersonAnimData> AnimData;
@@ -46,6 +50,12 @@ public:
     /** Helpers **/
     UFUNCTION(BlueprintPure, Category="Equipable")
     USkeletalMeshComponent* GetMesh1P() const;
+
+    UFUNCTION(BlueprintPure, Category="Equipable")
+    bool HasLeftHandSocket() const;
+
+    UFUNCTION(BlueprintPure, Category="Equipable")
+    FTransform GetLeftHandSocketTransform() const;
 
 protected:
     UFUNCTION()

@@ -103,30 +103,34 @@ public:
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 
     /** Public Getters **/
-    UFUNCTION(BlueprintCallable, Category = "First Person")
+    UFUNCTION(BlueprintPure, Category="Seethe")
     USkeletalMeshComponent* GetMesh1P() const;
 
-    UFUNCTION(BlueprintCallable, Category = "First Person")
+    UFUNCTION(BlueprintPure, Category="Seethe")
     UCameraComponent* GetCamera1P() const;
 
-    UFUNCTION(BlueprintCallable, Category="Inventory")
+    UFUNCTION(BlueprintPure, Category="Seethe")
     UInventoryComponent* GetInventory();
 
+    UFUNCTION(BlueprintPure, Category="Seethe")
     ABaseEquipable* GetCurrentEquipable();
+
+    UFUNCTION(BlueprintPure, Category="Seethe")
     ABaseWeapon* GetCurrentWeapon();
 
+    UFUNCTION(BlueprintPure, Category="Seethe")
     bool HasEquippedItem() const;
 
-    UFUNCTION(BlueprintPure, Category = "Health")
+    UFUNCTION(BlueprintPure, Category="Seethe")
     float GetHealthPercent() const;
 
-    UFUNCTION(BlueprintPure, Category = "HUD")
+    UFUNCTION(BlueprintPure, Category="Seethe")
     class AHUDBase* GetHUDInstance() const;
 
-    UFUNCTION(BlueprintPure, Category = "HUD")
+    UFUNCTION(BlueprintPure, Category="Seethe")
     UHUDWidget* GetHUDWidget() const;
 
-    UFUNCTION(BlueprintPure, Category = "HUD")
+    UFUNCTION(BlueprintPure, Category="Seethe")
     UInventoryWidget* GetInventoryWidget() const;
 
     virtual float TakeDamage(float DamageAmount,

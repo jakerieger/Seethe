@@ -8,10 +8,16 @@
 #include "Kismet/GameplayStatics.h"
 
 ABaseEquipable::ABaseEquipable() {
-    PrimaryActorTick.bCanEverTick = false;
+    PrimaryActorTick.bCanEverTick = true;
 
     Mesh1P = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Mesh1P"));
     SetRootComponent(Mesh1P);
+}
+
+void ABaseEquipable::Tick(float DeltaSeconds) {
+    Super::Tick(DeltaSeconds);
+
+    // TODO: Update LeftHandSocketTransform
 }
 
 void ABaseEquipable::Equip(ASeetheCharacter* Character) {
@@ -84,6 +90,18 @@ void ABaseEquipable::Drop(ASeetheCharacter* Character) {
 
 USkeletalMeshComponent* ABaseEquipable::GetMesh1P() const {
     return Mesh1P;
+}
+
+bool ABaseEquipable::HasLeftHandSocket() const {
+    return Mesh1P->DoesSocketExist(LeftHandSocket);
+}
+
+FTransform ABaseEquipable::GetLeftHandSocketTransform() const {
+    if (HasLeftHandSocket()) {
+        return Mesh1P->GetSocketTransform(LeftHandSocket, RTS_World);
+    }
+
+    return FTransform::Identity;
 }
 
 void ABaseEquipable::OnEquipMontageEnded(UAnimMontage*,
