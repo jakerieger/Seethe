@@ -6,12 +6,12 @@
 
 void FInventoryCategory::Initialize() {
     Slots.Empty(kInventorySize);
+
     for (int32 i = 0; i < kInventorySize; ++i) {
         Slots.Add(FInventorySlot());
     }
-    UsedSlots = 0;
 
-    UE_LOG(LogTemp, Warning, TEXT("FInventoryCategory::Initialize()"));
+    UsedSlots = 0;
 }
 
 bool FInventoryCategory::AddItem(UInventoryItem* Item) {
@@ -84,12 +84,7 @@ TArray<FInventorySlot>& UInventoryComponent::GetSlots(const EInventoryCategory& 
 
 void UInventoryComponent::BeginPlay() {
     Super::BeginPlay();
-
-    for (auto i = 0; i < static_cast<int32>(EInventoryCategory::NUM_CATEGORIES); i++) {
-        EInventoryCategory Category = static_cast<EInventoryCategory>(i);
-        auto& NewCategory           = InventoryCategories.Add(Category);
-        NewCategory.Initialize();
-    }
+    ResetInventory();
 }
 
 bool UInventoryComponent::CanUseItem(const int32 Index, const EInventoryCategory& Category) {
@@ -102,5 +97,35 @@ bool UInventoryComponent::CanUseItem(const int32 Index, const EInventoryCategory
 }
 
 void UInventoryComponent::UpdateInventory() {
-    OnInventoryChanged.Broadcast();
+    if (OnInventoryChanged.IsBound()) {
+        OnInventoryChanged.Broadcast();
+    }
+}
+
+void UInventoryComponent::ResetInventory() {
+    auto* SC = Cast<ASeetheCharacter>(GetOwner());
+    if (!SC) { return; }
+
+    if (!InventoryCategories.IsEmpty()) {
+        for (auto& [Category, CategorySlots] : InventoryCategories) {
+            if (CategorySlots.UsedSlots > 0) {
+                for (int i = 0; i < CategorySlots.UsedSlots; ++i) {
+                    FInventorySlot& Slot = CategorySlots.Slots[i];
+                    if (const TObjectPtr<UInventoryItem>& Data = Slot.ItemData; Data->IsValidLowLevel()) {
+                        Data->Drop(SC, i, Category);
+                    }
+                }
+            }
+
+            CategorySlots.Initialize();
+        }
+    } else {
+        for (auto i = 0; i < static_cast<int32>(EInventoryCategory::NUM_CATEGORIES); i++) {
+            EInventoryCategory Category = static_cast<EInventoryCategory>(i);
+            auto& NewCategory           = InventoryCategories.Add(Category);
+            NewCategory.Initialize();
+        }
+    }
+
+    UpdateInventory();
 }

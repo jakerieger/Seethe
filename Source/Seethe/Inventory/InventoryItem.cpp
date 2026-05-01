@@ -61,11 +61,11 @@ void UInventoryItem::Drop_Implementation(ASeetheCharacter* Character,
         const AItemPickupBase* NewPickup = World->SpawnActor<AItemPickupBase>(ItemPickupClass,
                                                                               CameraPos + (
                                                                                   CameraForward *
-                                                                                  100.f),
+                                                                                  100.0f),
                                                                               FRotator::ZeroRotator);
         if (NewPickup) {
             if (auto* Mesh = NewPickup->GetMesh()) {
-                Mesh->AddImpulse(CameraForward * 100.f);
+                Mesh->AddImpulse(CameraForward * 100.0f);
             }
         }
 
@@ -105,7 +105,7 @@ void UInventoryItemEquipable::Use_Implementation(ASeetheCharacter* Character,
 
         if (const AHUDBase* HUD = Character->GetHUDInstance()) {
             if (HUD->IsInventoryOpen()) {
-                Character->OnToggleInventory(FInputActionValue());
+                Character->OnToggleInventory();
             }
         }
     }

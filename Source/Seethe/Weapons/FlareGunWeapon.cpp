@@ -2,22 +2,60 @@
 
 
 #include "FlareGunWeapon.h"
+#include "NiagaraFunctionLibrary.h"
+#include "Kismet/GameplayStatics.h"
+#include "Seethe/FirstPersonAnimInstance.h"
+#include "Seethe/SeetheCharacter.h"
 
-
-// Sets default values
 AFlareGunWeapon::AFlareGunWeapon() {
-    // Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-    PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bCanEverTick = false;
 }
 
-// Called when the game starts or when spawned
-void AFlareGunWeapon::BeginPlay() {
-    Super::BeginPlay();
-    
-}
+void AFlareGunWeapon::Attack(ASeetheCharacter* Character) {
+    if (!CanAttack() || !Character || !ProjectileClass || !GetWorld()) { return; }
 
-// Called every frame
-void AFlareGunWeapon::Tick(float DeltaTime) {
-    Super::Tick(DeltaTime);
-}
+    const FTransform MuzzleTransform = GetMesh1P()->GetSocketTransform(MuzzleSocketName, RTS_World);
+    const FVector SpawnLocation      = MuzzleTransform.GetLocation();
+    const FRotator SpawnRotation     = MuzzleTransform.Rotator();
 
+    FActorSpawnParameters SpawnInfo;
+    SpawnInfo.Owner                          = this;
+    SpawnInfo.Instigator                     = GetInstigator();
+    SpawnInfo.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+    if (GetWorld()->SpawnActor<AFlareGunProjectile>(
+        ProjectileClass,
+        SpawnLocation,
+        SpawnRotation,
+        SpawnInfo)) {
+        // Spawn effects
+        if (AttackMontage) {
+            Character->GetAnimInstance1P()->Montage_Play(AttackMontage);
+        }
+
+        if (AttackSound) {
+            UGameplayStatics::PlaySoundAtLocation(this, AttackSound, SpawnLocation);
+        }
+
+        if (AttackFX) {
+            UNiagaraFunctionLibrary::SpawnSystemAttached(AttackFX,
+                                                         GetMesh1P(),
+                                                         MuzzleSocketName,
+                                                         FVector::ZeroVector,
+                                                         FRotator::ZeroRotator,
+                                                         EAttachLocation::SnapToTarget,
+                                                         true,
+                                                         true);
+        }
+
+        if (RecoilShake) {
+            Character->GetPlayerCameraManager()->StartCameraShake(RecoilShake, 1.0f);
+        }
+
+        if (RecoilFFB) {
+            if (auto* PC = Cast<APlayerController>(Character->GetController())) {
+                PC->ClientPlayForceFeedback(RecoilFFB);
+            }
+        }
+    }
+}

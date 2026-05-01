@@ -92,7 +92,7 @@ void UHUDWidget::PostToastNotification(const FToastNotification& Notification, c
         if (NewWidget) {
             UVerticalBoxSlot* NewSlot = ToastNotificationContainer->AddChildToVerticalBox(NewWidget);
             if (NewSlot) {
-                NewSlot->SetPadding(FMargin(0, 0, 0, 8.f));
+                NewSlot->SetPadding(FMargin(0, 0, 0, 8.0f));
                 NewWidget->BeginNotification(Notification, Duration);
                 NewWidget->SetVisibility(ESlateVisibility::HitTestInvisible);
             }
@@ -168,7 +168,7 @@ UHUDWidget* UHUDWidget::UpdateLastLookInput(const FVector2D& LookInput) {
 
 UHUDWidget* UHUDWidget::SetChargeIconBlink(const bool bBlink) {
     if (bBlink) {
-        PlayAnimation(ChargeBlinkAnim, 0.f, 0, EUMGSequencePlayMode::Forward, 1.f);
+        PlayAnimation(ChargeBlinkAnim, 0.0f, 0, EUMGSequencePlayMode::Forward, 1.0f);
     } else {
         StopAnimation(ChargeBlinkAnim);
     }

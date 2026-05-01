@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "BaseWeapon.h"
+#include "FlareGunProjectile.h"
 #include "FlareGunWeapon.generated.h"
 
 UCLASS()
@@ -11,14 +12,18 @@ class SEETHE_API AFlareGunWeapon : public ABaseWeapon {
     GENERATED_BODY()
 
 public:
-    // Sets default values for this actor's properties
     AFlareGunWeapon();
+    virtual void Attack(ASeetheCharacter* Character) override;
 
-protected:
-    // Called when the game starts or when spawned
-    virtual void BeginPlay() override;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    FName MuzzleSocketName {"S_Muzzle"};
 
-public:
-    // Called every frame
-    virtual void Tick(float DeltaTime) override;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TSubclassOf<AFlareGunProjectile> ProjectileClass;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TSubclassOf<UCameraShakeBase> RecoilShake;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TObjectPtr<UForceFeedbackEffect> RecoilFFB;
 };

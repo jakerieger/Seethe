@@ -21,6 +21,7 @@ class UInventoryComponent;
 class UInventoryWidget;
 class UInventorySlotWidget;
 class UInventoryItemData;
+class UCharacterInputData;
 
 struct FInputActionValue;
 
@@ -49,58 +50,63 @@ public:
     /** Input methods **/
     void OnMove(const FInputActionValue& Value);
     void OnLook(const FInputActionValue& Value);
-    void OnUse(const FInputActionValue& Value);
-    void OnReload(const FInputActionValue& Value);
-    void OnToggleInventory(const FInputActionValue& Value);
-    void OnInteract(const FInputActionValue& Value);
-    void OnUnEquip(const FInputActionValue& Value);
+
+    void OnUse();
+    void OnReload();
+    void OnToggleInventory();
+    void OnInteract();
+    void OnUnEquip();
+    void OnSprintStarted();
+    void OnSprintEnded();
 
 protected:
-    /** Properties **/
+    /** Properties (Editable) **/
     UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> MoveAction;
+    TObjectPtr<UCharacterInputData> InputData;
 
-    UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> LookAction;
+    UPROPERTY(EditAnywhere, Category = "Controller")
+    float WalkSpeed {200.0f};
 
-    UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> UseAction;
+    UPROPERTY(EditAnywhere, Category = "Controller")
+    float SprintSpeed {325.0f};
 
-    UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> ReloadAction;
-
-    UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> InventoryAction;
-
-    UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> InteractAction;
-
-    UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UInputAction> UnEquipAction;
+    UPROPERTY(EditAnywhere, Category = "Controller")
+    float JumpHeight {325.0f};
 
     UPROPERTY(EditAnywhere, Category = "Weapon")
-    float DrawbackSpeed = 15.0f;
+    float DrawbackSpeed {15.0f};
 
+    UPROPERTY(EditAnywhere, Category = "Sway")
+    float SwayAmount {1.0f};
+
+    UPROPERTY(EditAnywhere, Category = "Sway")
+    float MaxSway {5.0f};
+
+    UPROPERTY(EditAnywhere, Category = "Sway")
+    float SwaySmoothing {15.0f};
+
+    UPROPERTY(EditAnywhere, Category = "First Person")
+    TSubclassOf<UCameraShakeBase> HitCameraShake;
+
+    UPROPERTY(EditAnywhere, Category = "First Person")
+    TObjectPtr<UForceFeedbackEffect> HitFFB;
+
+    /** Properties (Read-Only) **/
     UPROPERTY(BlueprintReadOnly, Category = "Weapon")
     float DrawbackDisplacement;
-
-    UPROPERTY(EditAnywhere, Category = "Sway")
-    float SwayAmount = 1.5f;
-
-    UPROPERTY(EditAnywhere, Category = "Sway")
-    float MaxSway = 5.0f;
-
-    UPROPERTY(EditAnywhere, Category = "Sway")
-    float SwaySmoothing = 10.0f;
 
     UPROPERTY(BlueprintReadOnly, Category = "Sway")
     FRotator EquipSwayRotation;
 
     void Die();
 
+    UFUNCTION()
+    void Respawn();
+
 public:
     virtual void Tick(float DeltaTime) override;
     virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+    virtual void PossessedBy(AController* NewController) override;
 
     /** Public Getters **/
     UFUNCTION(BlueprintPure, Category="Seethe")
@@ -110,13 +116,13 @@ public:
     UCameraComponent* GetCamera1P() const;
 
     UFUNCTION(BlueprintPure, Category="Seethe")
-    UInventoryComponent* GetInventory();
+    UInventoryComponent* GetInventory() const;
 
     UFUNCTION(BlueprintPure, Category="Seethe")
-    ABaseEquipable* GetCurrentEquipable();
+    ABaseEquipable* GetCurrentEquipable() const;
 
     UFUNCTION(BlueprintPure, Category="Seethe")
-    ABaseWeapon* GetCurrentWeapon();
+    ABaseWeapon* GetCurrentWeapon() const;
 
     UFUNCTION(BlueprintPure, Category="Seethe")
     bool HasEquippedItem() const;
@@ -132,6 +138,30 @@ public:
 
     UFUNCTION(BlueprintPure, Category="Seethe")
     UInventoryWidget* GetInventoryWidget() const;
+
+    UFUNCTION(BlueprintPure, Category="Seethe")
+    APlayerCameraManager* GetPlayerCameraManager() const;
+
+    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFirstPersonAnimInstance* GetAnimInstance1P() const;
+
+    UFUNCTION(BlueprintPure, Category="Seethe")
+    FLeftHandSocketResult GetLeftHandSocketTransform() const;
+
+    UFUNCTION(BlueprintPure, Category="Seethe")
+    bool IsSprinting() const;
+
+    UFUNCTION(BlueprintPure, Category="Seethe")
+    bool IsGrounded() const;
+
+    UFUNCTION(BlueprintPure, Category="Seethe")
+    bool IsFalling() const;
+
+    UFUNCTION(BlueprintPure, Category="Seethe")
+    float GetWalkSpeed() const;
+
+    UFUNCTION(BlueprintPure, Category="Seethe")
+    float GetSprintSpeed() const;
 
     virtual float TakeDamage(float DamageAmount,
                              const FDamageEvent& DamageEvent,
@@ -155,6 +185,8 @@ private:
     float EnemyDetectRange = 1200.0f;
     float LookAxisX        = 0, LookAxisY = 0;
     FTransform EquipableOffset;
+    bool bSprinting {false};
+    FTimerHandle RespawnHandle;
 
     UPROPERTY()
     TMap<UClass*, ABaseEquipable*> CachedEquipables;
@@ -168,7 +200,7 @@ private:
     IEquipableInterface* GetEquipableInterface() const;
     IWeaponInterface* GetWeaponInterface() const;
 
-    void EquipableSway(float DeltaTime);
+    void Mesh1PSway(float DeltaTime);
     void Mesh1PAvoidClipping(float DeltaTime);
     void CameraBob(float DeltaTime);
     void TraceForInteractables();

@@ -17,7 +17,6 @@ class SEETHE_API ABaseEquipable : public AActor, public IEquipableInterface {
 
 public:
     ABaseEquipable();
-    virtual void Tick(float DeltaSeconds) override;
 
     /** IEquipableInterface overrides **/
     virtual void Equip(ASeetheCharacter* Character) override;

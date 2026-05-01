@@ -9,7 +9,7 @@
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnInventoryChanged);
 
-inline constexpr uint32 kInventorySize{25};
+inline constexpr uint32 kInventorySize {25};
 
 USTRUCT(BlueprintType)
 struct FInventoryCategory {
@@ -19,7 +19,7 @@ struct FInventoryCategory {
     TArray<FInventorySlot> Slots;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Inventory")
-    int32 UsedSlots{0};
+    int32 UsedSlots {0};
 
     void Initialize();
     bool AddItem(UInventoryItem* Item);
@@ -52,6 +52,7 @@ public:
     TArray<FInventorySlot>& GetSlots(const EInventoryCategory& Category);
 
     virtual void BeginPlay() override;
+    void ResetInventory();
 
 private:
     bool CanUseItem(const int32 Index, const EInventoryCategory& Category);

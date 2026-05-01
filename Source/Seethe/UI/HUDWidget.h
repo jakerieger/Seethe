@@ -110,7 +110,7 @@ public:
     UHUDWidget* SetChargeIconColor(const FColor& Color);
 
     UFUNCTION(BlueprintCallable, Category="HUD")
-    void PostToastNotification(const FToastNotification& Notification, float Duration = 3.f) const;
+    void PostToastNotification(const FToastNotification& Notification, float Duration = 3.0f) const;
 
     UFUNCTION(BlueprintCallable, Category="HUD")
     void PostConfirmNotification(const FConfirmNotification& Notification);

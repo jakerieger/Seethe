@@ -30,7 +30,7 @@ bool AItemPickupBase::Interact(ASeetheCharacter* Character) {
                 if (UAnimInstance* Anim = Arms->GetAnimInstance()) {
                     const auto Duration = Anim->Montage_Play(PickupMontage);
 
-                    if (Duration > 0.f) {
+                    if (Duration > 0.0f) {
                         FOnMontageEnded EndDelegate;
                         EndDelegate.BindUObject(this, &AItemPickupBase::OnPickupMontageEnded, Character);
                         Anim->Montage_SetEndDelegate(EndDelegate, PickupMontage);

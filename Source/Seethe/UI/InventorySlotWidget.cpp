@@ -34,7 +34,7 @@ void UInventorySlotWidget::SetSelected(const bool bSelected) {
     if (bEmptySlot) { return; }
 
     const auto BorderColor = bSelected
-                                 ? FLinearColor(1.f, 0.79f, 0.3f, 1.f)
+                                 ? FLinearColor(1.0f, 0.79f, 0.3f, 1.0f)
                                  : FLinearColor::White.CopyWithNewOpacity(0.1f);
     ItemBorder->SetBrushColor(BorderColor);
 

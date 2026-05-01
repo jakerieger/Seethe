@@ -32,6 +32,7 @@ UCLASS()
 class SEETHE_API UInventoryWidget : public UUserWidget {
     GENERATED_BODY()
     friend class ASeetheCharacter;
+    friend class AHUDBase;
 
 public:
     UPROPERTY(meta = (BindWidget))

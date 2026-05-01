@@ -26,7 +26,7 @@ void AInventoryItem3dPreview::Tick(const float DeltaTime) {
 
     if (ItemMesh) {
         const float RotYaw = RotateSpeed * DeltaTime;
-        ItemMesh->AddLocalRotation(FRotator(0.f, RotYaw, 0.f));
+        ItemMesh->AddLocalRotation(FRotator(0.0f, RotYaw, 0.0f));
     }
 }
 
@@ -39,8 +39,14 @@ void AInventoryItem3dPreview::BeginPlay() {
 }
 
 void AInventoryItem3dPreview::SetupPreview(UStaticMesh* Mesh, const FTransform& PreviewTransform) const {
-    ItemMesh->SetStaticMesh(Mesh);
-    ItemMesh->SetRelativeTransform(PreviewTransform);
+    if (ItemMesh) {
+        ItemMesh->SetStaticMesh(Mesh);
+        ItemMesh->SetRelativeTransform(PreviewTransform);
+        ItemMesh->SetVisibility(true);
+    } else {
+        ItemMesh->SetStaticMesh(nullptr);
+        ItemMesh->SetVisibility(false);
+    }
 }
 
 void AInventoryItem3dPreview::SetVisible(const bool bVisible) const {

@@ -14,17 +14,21 @@
 #include "Seethe.h"
 #include "Weapons/BaseWeapon.h"
 #include "BaseEquipable.h"
+#include "DeathScreenWidget.h"
+#include "FirstPersonAnimInstance.h"
+#include "SeetheGameMode.h"
 #include "Inventory/InventoryComponent.h"
 #include "UI/HUDBase.h"
 #include "UI/HUDWidget.h"
 #include "UI/InventoryWidget.h"
+#include "CharacterInputData.h"
 
 ASeetheCharacter::ASeetheCharacter() {
     FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
     FirstPersonCamera->SetupAttachment(GetMesh());
-    FirstPersonCamera->SetRelativeLocation(FVector(0.f, 0.f, 60.f));
+    FirstPersonCamera->SetRelativeLocation(FVector(0.0f, 0.0f, 60.0f));
     FirstPersonCamera->bUsePawnControlRotation = true;
-    FirstPersonCamera->FirstPersonFieldOfView  = 70.f;
+    FirstPersonCamera->FirstPersonFieldOfView  = 70.0f;
     FirstPersonCamera->FirstPersonScale        = 0.6f;
     FirstPersonCamera->SetEnableFirstPersonFieldOfView(true);
     FirstPersonCamera->SetEnableFirstPersonScale(true);
@@ -36,18 +40,24 @@ ASeetheCharacter::ASeetheCharacter() {
 
     InventoryComponent = CreateDefaultSubobject<UInventoryComponent>(TEXT("InventoryComponent"));
 
-    GetCharacterMovement()->MaxWalkSpeed = 200.0f;
+    GetCharacterMovement()->MaxWalkSpeed  = WalkSpeed;
+    GetCharacterMovement()->JumpZVelocity = JumpHeight;
 }
 
 void ASeetheCharacter::BeginPlay() {
     Super::BeginPlay();
 
     DefaultCameraLocation = FirstPersonCamera->GetRelativeLocation();
+    CurrentHealth         = 100;
 
-    GetHUDWidget()->UpdateHealth(GetHealthPercent())
-                  ->UpdateBatteryChargeState(EBatteryChargeState::Dead);
+    if (GetInventoryWidget()) {
+        GetInventoryWidget()->InitializeWidget(GetInventory());
+    }
 
-    GetInventoryWidget()->InitializeWidget(InventoryComponent);
+    if (GetHUDWidget()) {
+        GetHUDWidget()->UpdateHealth(GetHealthPercent());
+        GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::Dead);
+    }
 }
 
 void ASeetheCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason) {
@@ -80,19 +90,19 @@ void ASeetheCharacter::OnStopLook() {
     GetHUDWidget()->UpdateLastLookInput(FVector2D::ZeroVector);
 }
 
-void ASeetheCharacter::OnUse(const FInputActionValue&) {
+void ASeetheCharacter::OnUse() {
     if (IEquipableInterface* Equipable = GetEquipableInterface()) {
         Equipable->Use(this);
     }
 }
 
-void ASeetheCharacter::OnReload(const FInputActionValue&) {
+void ASeetheCharacter::OnReload() {
     if (IWeaponInterface* Weapon = GetWeaponInterface()) {
         Weapon->Reload(this);
     }
 }
 
-void ASeetheCharacter::OnToggleInventory(const FInputActionValue&) {
+void ASeetheCharacter::OnToggleInventory() {
     APlayerController* PC = Cast<APlayerController>(GetController());
     const AHUDBase* HUD   = Cast<AHUDBase>(PC->GetHUD());
 
@@ -123,7 +133,7 @@ void ASeetheCharacter::OnToggleInventory(const FInputActionValue&) {
     }
 }
 
-void ASeetheCharacter::OnInteract(const FInputActionValue&) {
+void ASeetheCharacter::OnInteract() {
     if (auto* HUDWidget = GetHUDWidget()) {
         if (auto* ConfirmWidget = HUDWidget->GetCurrentConfirmWidget()) {
             ConfirmWidget->ConfirmNotification(false);
@@ -136,26 +146,66 @@ void ASeetheCharacter::OnInteract(const FInputActionValue&) {
     }
 }
 
-void ASeetheCharacter::OnUnEquip(const FInputActionValue&) {
+void ASeetheCharacter::OnUnEquip() {
     UnEquip();
 }
 
+void ASeetheCharacter::OnSprintStarted() {
+    GetCharacterMovement()->MaxWalkSpeed = SprintSpeed;
+    bSprinting                           = true;
+}
+
+void ASeetheCharacter::OnSprintEnded() {
+    GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
+    bSprinting                           = false;
+}
+
 void ASeetheCharacter::Die() {
-    DetachFromControllerPendingDestroy();
+    // Drop all our inventory items in place
+    if (HasEquippedItem()) {
+        Drop();
+    }
+
+    InventoryComponent->ResetInventory();
+
     SetActorHiddenInGame(true);
     SetActorTickEnabled(false);
+    SetActorEnableCollision(false);
 
-    if (AGameModeBase* Gm = GetWorld()->GetAuthGameMode()) {
-        Gm->RestartPlayer(GetController());
+    if (APlayerController* PC = Cast<APlayerController>(GetController())) {
+        PC->SetInputMode(FInputModeUIOnly {});
+        // Show death screen
+        if (const ASeetheGameMode* GM = Cast<ASeetheGameMode>(GetWorld()->GetAuthGameMode())) {
+            GM->ShowDeathScreen(PC);
+        }
+    }
+
+    GetWorldTimerManager().SetTimer(
+        RespawnHandle,
+        this,
+        &ASeetheCharacter::Respawn,
+        6.0f,
+        false);
+}
+
+void ASeetheCharacter::Respawn() {
+    AController* Saved = GetController();
+
+    DetachFromControllerPendingDestroy();
+
+    if (Saved) {
+        if (AGameModeBase* GM = GetWorld()->GetAuthGameMode()) {
+            GM->RestartPlayer(Saved);
+        }
     }
 
     Destroy();
 }
 
-void ASeetheCharacter::Tick(float DeltaTime) {
+void ASeetheCharacter::Tick(const float DeltaTime) {
     Super::Tick(DeltaTime);
 
-    EquipableSway(DeltaTime);
+    Mesh1PSway(DeltaTime);
     Mesh1PAvoidClipping(DeltaTime);
     CameraBob(DeltaTime);
 
@@ -164,37 +214,62 @@ void ASeetheCharacter::Tick(float DeltaTime) {
 }
 
 void ASeetheCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
-    if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
-        EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnMove);
-        EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnLook);
-        EnhancedInputComponent->BindAction(UseAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnUse);
-        EnhancedInputComponent->BindAction(ReloadAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnReload);
-        EnhancedInputComponent->BindAction(InteractAction,
-                                           ETriggerEvent::Started,
-                                           this,
-                                           &ASeetheCharacter::OnInteract);
-        EnhancedInputComponent->BindAction(InventoryAction,
-                                           ETriggerEvent::Started,
-                                           this,
-                                           &ASeetheCharacter::OnToggleInventory);
-        EnhancedInputComponent->BindAction(UnEquipAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnUnEquip);
+    if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent); EIC && InputData) {
+        EIC->BindAction(InputData->MoveAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnMove);
+        EIC->BindAction(InputData->LookAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnLook);
+        EIC->BindAction(InputData->UseAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnUse);
+        EIC->BindAction(InputData->ReloadAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnReload);
+        EIC->BindAction(InputData->InteractAction,
+                        ETriggerEvent::Started,
+                        this,
+                        &ASeetheCharacter::OnInteract);
+        EIC->BindAction(InputData->InventoryAction,
+                        ETriggerEvent::Started,
+                        this,
+                        &ASeetheCharacter::OnToggleInventory);
+        EIC->BindAction(InputData->UnEquipAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnUnEquip);
 
-        EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Completed, this, &ASeetheCharacter::OnStopLook);
-        EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Canceled, this, &ASeetheCharacter::OnStopLook);
+        EIC->BindAction(InputData->LookAction, ETriggerEvent::Completed, this, &ASeetheCharacter::OnStopLook);
+        EIC->BindAction(InputData->LookAction, ETriggerEvent::Canceled, this, &ASeetheCharacter::OnStopLook);
+
+        EIC->BindAction(InputData->SprintAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnSprintStarted);
+        EIC->BindAction(InputData->SprintAction, ETriggerEvent::Completed, this, &ASeetheCharacter::OnSprintEnded);
+
+        EIC->BindAction(InputData->JumpAction, ETriggerEvent::Started, this, &ASeetheCharacter::Jump);
+        EIC->BindAction(InputData->JumpAction, ETriggerEvent::Completed, this, &ASeetheCharacter::StopJumping);
+    }
+}
+
+void ASeetheCharacter::PossessedBy(AController* NewController) {
+    Super::PossessedBy(NewController);
+
+    APlayerController* PC = Cast<APlayerController>(NewController);
+    if (PC) {
+        PC->SetInputMode(FInputModeGameOnly {});
+
+        if (GetInventoryWidget()) {
+            GetInventoryWidget()->InitializeWidget(GetInventory());
+        }
+
+        if (GetHUDWidget()) {
+            GetHUDWidget()->UpdateHealth(GetHealthPercent());
+            GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::Dead);
+        }
     }
 }
 
 USkeletalMeshComponent* ASeetheCharacter::GetMesh1P() const { return FirstPersonArms; }
 UCameraComponent* ASeetheCharacter::GetCamera1P() const { return FirstPersonCamera; }
-UInventoryComponent* ASeetheCharacter::GetInventory() { return InventoryComponent; }
-ABaseEquipable* ASeetheCharacter::GetCurrentEquipable() { return CurrentEquipable; }
-ABaseWeapon* ASeetheCharacter::GetCurrentWeapon() { return Cast<ABaseWeapon>(CurrentEquipable); }
-
-bool ASeetheCharacter::HasEquippedItem() const {
-    return CurrentEquipable != nullptr;
-}
-
-float ASeetheCharacter::GetHealthPercent() const { return CurrentHealth / 100.f; }
+UInventoryComponent* ASeetheCharacter::GetInventory() const { return InventoryComponent; }
+ABaseEquipable* ASeetheCharacter::GetCurrentEquipable() const { return CurrentEquipable; }
+ABaseWeapon* ASeetheCharacter::GetCurrentWeapon() const { return Cast<ABaseWeapon>(CurrentEquipable); }
+bool ASeetheCharacter::HasEquippedItem() const { return CurrentEquipable != nullptr; }
+float ASeetheCharacter::GetHealthPercent() const { return CurrentHealth / 100.0f; }
+bool ASeetheCharacter::IsSprinting() const { return bSprinting; }
+bool ASeetheCharacter::IsGrounded() const { return !GetMovementComponent()->IsFalling(); }
+bool ASeetheCharacter::IsFalling() const { return FMath::IsNegative(GetVelocity().Z); }
+float ASeetheCharacter::GetWalkSpeed() const { return WalkSpeed; }
+float ASeetheCharacter::GetSprintSpeed() const { return SprintSpeed; }
 
 AHUDBase* ASeetheCharacter::GetHUDInstance() const {
     if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
@@ -223,6 +298,30 @@ UInventoryWidget* ASeetheCharacter::GetInventoryWidget() const {
     return nullptr;
 }
 
+APlayerCameraManager* ASeetheCharacter::GetPlayerCameraManager() const {
+    if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
+        return PC->PlayerCameraManager;
+    }
+
+    return nullptr;
+}
+
+UFirstPersonAnimInstance* ASeetheCharacter::GetAnimInstance1P() const {
+    return Cast<UFirstPersonAnimInstance>(GetMesh1P()->GetAnimInstance());
+}
+
+FLeftHandSocketResult ASeetheCharacter::GetLeftHandSocketTransform() const {
+    FLeftHandSocketResult Result;
+
+    if (HasEquippedItem()) {
+        const auto* Equipped   = GetCurrentEquipable();
+        Result.bHasSocket      = Equipped->HasLeftHandSocket();
+        Result.SocketTransform = Equipped->GetLeftHandSocketTransform();
+    }
+
+    return Result;
+}
+
 float ASeetheCharacter::TakeDamage(const float DamageAmount,
                                    const FDamageEvent& DamageEvent,
                                    AController* EventInstigator,
@@ -230,7 +329,17 @@ float ASeetheCharacter::TakeDamage(const float DamageAmount,
     const float DamageToApply = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
     CurrentHealth -= FMath::Floor(DamageToApply);
-    GetHUDWidget()->UpdateHealth(CurrentHealth / 100.f);
+    if (GetHUDWidget()) {
+        GetHUDWidget()->UpdateHealth(CurrentHealth / 100.0f);
+    }
+
+    if (GetPlayerCameraManager()) {
+        GetPlayerCameraManager()->StartCameraShake(HitCameraShake);
+    }
+
+    if (auto* PC = Cast<APlayerController>(GetController()); PC && HitFFB) {
+        PC->ClientPlayForceFeedback(HitFFB);
+    }
 
     if (CurrentHealth <= 0) {
         Die();
@@ -316,7 +425,7 @@ IWeaponInterface* ASeetheCharacter::GetWeaponInterface() const {
     return Cast<IWeaponInterface>(CurrentEquipable);
 }
 
-void ASeetheCharacter::EquipableSway(const float DeltaTime) {
+void ASeetheCharacter::Mesh1PSway(const float DeltaTime) {
     const APlayerController* PC = Cast<APlayerController>(GetController());
     if (!PC || PC->IsLookInputIgnored()) { return; }
 
@@ -327,8 +436,8 @@ void ASeetheCharacter::EquipableSway(const float DeltaTime) {
 
     EquipSwayRotation = FMath::RInterpTo(EquipSwayRotation, TargetSway, DeltaTime, SwaySmoothing);
 
-    LookAxisX = FMath::FInterpTo(LookAxisX, 0.f, DeltaTime, 10.0f);
-    LookAxisY = FMath::FInterpTo(LookAxisY, 0.f, DeltaTime, 10.0f);
+    LookAxisX = FMath::FInterpTo(LookAxisX, 0.0f, DeltaTime, 10.0f);
+    LookAxisY = FMath::FInterpTo(LookAxisY, 0.0f, DeltaTime, 10.0f);
 }
 
 void ASeetheCharacter::Mesh1PAvoidClipping(const float DeltaTime) {
@@ -348,7 +457,7 @@ void ASeetheCharacter::Mesh1PAvoidClipping(const float DeltaTime) {
                                                        End,
                                                        FQuat::Identity,
                                                        ECC_Visibility,
-                                                       FCollisionShape::MakeSphere(10.f),
+                                                       FCollisionShape::MakeSphere(10.0f),
                                                        Params);
     const float TargetDisplacement = bHit ? (End - WallHit.Location).Size() : 0.0f;
     DrawbackDisplacement           = FMath::FInterpTo(DrawbackDisplacement,

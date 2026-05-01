@@ -4,16 +4,24 @@
 #include "FirstPersonAnimInstance.h"
 
 void UFirstPersonAnimInstance::UpdateLocomotionSequences(UFirstPersonAnimData* AnimData) {
-    CurrentIdleSequence = AnimData->IdleSequence;
-    CurrentWalkSequence = AnimData->WalkSequence;
+    TransitionToNewLocomotion();
+    CurrentIdleSequence   = AnimData->IdleSequence;
+    CurrentWalkSequence   = AnimData->WalkSequence;
+    CurrentSprintSequence = AnimData->SprintSequence;
 }
 
 void UFirstPersonAnimInstance::SetDefaultLocomotion() {
-    CurrentIdleSequence = DefaultIdleSequence;
-    CurrentWalkSequence = DefaultWalkSequence;
+    TransitionToNewLocomotion();
+    CurrentIdleSequence   = DefaultIdleSequence;
+    CurrentWalkSequence   = DefaultWalkSequence;
+    CurrentSprintSequence = DefaultSprintSequence;
 }
 
 void UFirstPersonAnimInstance::NativeBeginPlay() {
     Super::NativeBeginPlay();
     SetDefaultLocomotion();
+}
+
+void UFirstPersonAnimInstance::TransitionToNewLocomotion() {
+    StopAllMontages(0.2f);
 }

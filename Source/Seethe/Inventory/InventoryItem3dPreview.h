@@ -32,7 +32,7 @@ protected:
 
 public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
-    float RotateSpeed = 75.f;
+    float RotateSpeed = 75.0f;
 
     UFUNCTION(BlueprintCallable, Category="Inventory")
     void SetupPreview(UStaticMesh* Mesh, const FTransform& PreviewTransform) const;

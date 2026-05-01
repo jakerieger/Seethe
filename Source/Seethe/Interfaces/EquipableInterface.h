@@ -22,3 +22,20 @@ public:
     virtual void Drop(ASeetheCharacter* Character) = 0;
     virtual void Use(ASeetheCharacter* Character) = 0;
 };
+
+/** Stores the result of fetching the Equipable's left-hand socket transform (if present) **/
+USTRUCT(BlueprintType)
+struct FLeftHandSocketResult {
+    GENERATED_BODY()
+
+    UPROPERTY(BlueprintReadOnly)
+    FTransform SocketTransform {FTransform::Identity};
+
+    UPROPERTY(BlueprintReadOnly)
+    bool bHasSocket {false};
+
+    FLeftHandSocketResult() = default;
+
+    FLeftHandSocketResult(const FTransform& InTransform, const bool bInHasSocket) : SocketTransform(InTransform),
+        bHasSocket(bInHasSocket) {}
+};

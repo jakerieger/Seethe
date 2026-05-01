@@ -6,6 +6,7 @@
 #include "InventoryWidget.h"
 #include "InventoryItem3dPreview.h"
 #include "Blueprint/UserWidget.h"
+#include "Seethe/SeetheCharacter.h"
 
 void AHUDBase::ShowInventory() const {
     if (auto* Confirm = HUDWidget->GetCurrentConfirmWidget()) {
@@ -46,7 +47,8 @@ void AHUDBase::BeginPlay() {
         auto* NewActor       = GetWorld()->SpawnActor<AInventoryItem3dPreview>(PreviewActorClass, SpawnInfo);
         if (NewActor) {
             PreviewActor = NewActor;
-            PreviewActor->SetActorLocation(FVector(999999.f, 999999.f, 999999.f));
+            PreviewActor->SetActorLocation(FVector(999999.0f, 999999.0f, 999999.0f));
+            PreviewActor->SetupPreview(nullptr, {});
         }
     }
 }

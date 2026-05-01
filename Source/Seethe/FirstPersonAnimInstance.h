@@ -12,24 +12,35 @@ class SEETHE_API UFirstPersonAnimInstance : public UAnimInstance {
     GENERATED_BODY()
 
 public:
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    TObjectPtr<UAnimSequenceBase> DefaultIdleSequence;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite)
-    TObjectPtr<UAnimSequenceBase> DefaultWalkSequence;
-
+    /** Set locomotion sequences. **/
     UFUNCTION(BlueprintCallable)
     void UpdateLocomotionSequences(UFirstPersonAnimData* AnimData);
 
+    /** Reset locomotion sequences to character default. **/
     UFUNCTION(BlueprintCallable)
     void SetDefaultLocomotion();
 
     virtual void NativeBeginPlay() override;
 
 protected:
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TObjectPtr<UAnimSequenceBase> DefaultIdleSequence;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TObjectPtr<UAnimSequenceBase> DefaultWalkSequence;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TObjectPtr<UAnimSequenceBase> DefaultSprintSequence;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
     TObjectPtr<UAnimSequenceBase> CurrentIdleSequence;
 
-    UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
     TObjectPtr<UAnimSequenceBase> CurrentWalkSequence;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+    TObjectPtr<UAnimSequenceBase> CurrentSprintSequence;
+
+private:
+    void TransitionToNewLocomotion();
 };

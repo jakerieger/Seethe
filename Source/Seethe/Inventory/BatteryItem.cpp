@@ -12,7 +12,7 @@ void UBatteryItem::Use_Implementation(ASeetheCharacter* Character,
                                       const EInventoryCategory& Category) {
     if (Character) {
         auto* Current = Character->GetCurrentEquipable();
-        if (Current && Current->IsA(AFlashlightTool::StaticClass())) {
+        if (Current && Current->IsA<AFlashlightTool>()) {
             AFlashlightTool* Flashlight = Cast<AFlashlightTool>(Current);
             Flashlight->Recharge(Seethe::Constants::kBatteryChargeAmount);
             Super::Use_Implementation(Character, Index, Category);

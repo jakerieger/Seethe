@@ -118,8 +118,7 @@ FReply UInventoryWidget::NativeOnKeyDown(const FGeometry& InGeometry, const FKey
         }
 
         if (auto* SC = Cast<ASeetheCharacter>(GetOwningPlayerPawn())) {
-            const FInputActionValue Value(Key);
-            SC->OnToggleInventory(Value);
+            SC->OnToggleInventory();
         }
 
         KeyStates[Key] = true;
@@ -291,7 +290,7 @@ void UInventoryWidget::OnCategoryChanged(const EInventoryCategory& Category) {
         case EInventoryCategory::EIC_Supplies: {
             InventoryCategoryText->SetText(NSLOCTEXT("UI", "Inventory", "Supplies"));
             SuppliesCategoryButton->SetStyle(SelectedButtonStyle);
-            SuppliesIcon->SetColorAndOpacity(FLinearColor(1.f, 0.79f, 0.3f, 1.f));
+            SuppliesIcon->SetColorAndOpacity(FLinearColor(1.0f, 0.79f, 0.3f, 1.0f));
 
             OtherButtons[0] = ToolsCategoryButton;
             OtherButtons[1] = WeaponsCategoryButton;
@@ -305,7 +304,7 @@ void UInventoryWidget::OnCategoryChanged(const EInventoryCategory& Category) {
         case EInventoryCategory::EIC_Tool: {
             InventoryCategoryText->SetText(NSLOCTEXT("UI", "Inventory", "Tools"));
             ToolsCategoryButton->SetStyle(SelectedButtonStyle);
-            ToolsIcon->SetColorAndOpacity(FLinearColor(1.f, 0.79f, 0.3f, 1.f));
+            ToolsIcon->SetColorAndOpacity(FLinearColor(1.0f, 0.79f, 0.3f, 1.0f));
 
             OtherButtons[0] = SuppliesCategoryButton;
             OtherButtons[1] = WeaponsCategoryButton;
@@ -319,7 +318,7 @@ void UInventoryWidget::OnCategoryChanged(const EInventoryCategory& Category) {
         case EInventoryCategory::EIC_Weapon: {
             InventoryCategoryText->SetText(NSLOCTEXT("UI", "Inventory", "Weapons"));
             WeaponsCategoryButton->SetStyle(SelectedButtonStyle);
-            WeaponsIcon->SetColorAndOpacity(FLinearColor(1.f, 0.79f, 0.3f, 1.f));
+            WeaponsIcon->SetColorAndOpacity(FLinearColor(1.0f, 0.79f, 0.3f, 1.0f));
 
             OtherButtons[0] = ToolsCategoryButton;
             OtherButtons[1] = SuppliesCategoryButton;
@@ -333,7 +332,7 @@ void UInventoryWidget::OnCategoryChanged(const EInventoryCategory& Category) {
         case EInventoryCategory::EIC_Note: {
             InventoryCategoryText->SetText(NSLOCTEXT("UI", "Inventory", "Notes"));
             NotesCategoryButton->SetStyle(SelectedButtonStyle);
-            NotesIcon->SetColorAndOpacity(FLinearColor(1.f, 0.79f, 0.3f, 1.f));
+            NotesIcon->SetColorAndOpacity(FLinearColor(1.0f, 0.79f, 0.3f, 1.0f));
 
             OtherButtons[0] = ToolsCategoryButton;
             OtherButtons[1] = WeaponsCategoryButton;
@@ -376,7 +375,7 @@ FButtonStyle UInventoryWidget::GetCategoryButtonStyle() {
     FSlateBrush NormalBrush;
     NormalBrush.TintColor = FSlateColor(FLinearColor::Black.CopyWithNewOpacity(0.0f));
     NormalBrush.DrawAs    = ESlateBrushDrawType::Box;
-    NormalBrush.ImageSize = FVector2D {80.f, 80.f};
+    NormalBrush.ImageSize = FVector2D {80.0f, 80.0f};
     NormalBrush.SetResourceObject(nullptr);
 
     FSlateBrush HoveredBrush = NormalBrush;

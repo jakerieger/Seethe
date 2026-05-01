@@ -16,4 +16,7 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     TObjectPtr<UAnimSequenceBase> WalkSequence;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TObjectPtr<UAnimSequenceBase> SprintSequence;
 };

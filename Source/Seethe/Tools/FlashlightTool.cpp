@@ -28,7 +28,7 @@ void AFlashlightTool::SetOn(const bool bShouldBeOn) const {
         if (PC) {
             UAnimInstance* Anim  = PC->GetMesh1P()->GetAnimInstance();
             const float Duration = Anim->Montage_Play(PowerMontage);
-            if (Anim && Duration > 0.f) {
+            if (Anim && Duration > 0.0f) {
                 FOnMontageEnded MontageEnded;
                 MontageEnded.BindUObject(this, &AFlashlightTool::OnPowerMontageEnded, bShouldBeOn);
                 Anim->Montage_SetEndDelegate(MontageEnded, PowerMontage);

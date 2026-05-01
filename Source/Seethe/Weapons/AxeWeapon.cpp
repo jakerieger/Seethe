@@ -3,11 +3,12 @@
 
 #include "AxeWeapon.h"
 #include "Seethe/SeetheCharacter.h"
-#include "Seethe/GameUtils.h"
 #include "Seethe/UI/HUDWidget.h"
 #include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Seethe/FirstPersonAnimInstance.h"
+#include "Seethe/SeetheUtilities.h"
 
 AAxeWeapon::AAxeWeapon() {
     PrimaryActorTick.bCanEverTick = true;
@@ -26,8 +27,7 @@ void AAxeWeapon::Attack(ASeetheCharacter* Character) {
         SelectedMontage = SwingMontages[MontageIndex];
     }
 
-    UAnimInstance* AnimInstance = Character->GetMesh1P()->GetAnimInstance();
-    AnimInstance->Montage_Play(SelectedMontage);
+    Character->GetAnimInstance1P()->Montage_Play(SelectedMontage);
 
     if (AttackSound) {
         UGameplayStatics::PlaySoundAtLocation(this, AttackSound, GetActorLocation());
@@ -53,18 +53,18 @@ void AAxeWeapon::SetHitDetectionActive(const bool bActive) {
 }
 
 void AAxeWeapon::PerformTrace(const FVector& Start, const FVector& End) {
-    const FVector BladeHalfSize = FVector(5.f, 20.f, 5.f);
+    const FVector BladeHalfSize = FVector(5.0f, 20.0f, 5.0f);
     FHitResult Hit;
     const FQuat TraceRotation = GetMesh1P()->GetSocketQuaternion(HitSocketName);
 
-    const bool bHit = UKismetSystemLibrary::BoxTraceSingle(GetWorld(),
+    const bool bHit = UKismetSystemLibrary::BoxTraceSingle(this,
                                                            Start,
                                                            End,
                                                            BladeHalfSize,
                                                            TraceRotation.Rotator(),
                                                            UEngineTypes::ConvertToTraceType(ECC_Visibility),
                                                            true,
-                                                           TArray<AActor*>{this, GetOwner()},
+                                                           TArray<AActor*> {this, GetOwner()},
                                                            EDrawDebugTrace::None,
                                                            Hit,
                                                            true);
@@ -78,11 +78,14 @@ void AAxeWeapon::PerformTrace(const FVector& Start, const FVector& End) {
             }
 
             if (ImpactEnemyDecal) {
-                FGameUtils::SpawnDecalWithRandomRotation(GetWorld(), ImpactEnemyDecal, FVector(24.f, 24.f, 24.f), Hit);
+                USeetheUtilities::SpawnHitDecalWithRandomRollRotation(this,
+                                                                      ImpactEnemyDecal,
+                                                                      FVector(24.0f, 24.0f, 24.0f),
+                                                                      Hit);
             }
 
             if (ImpactEnemyFX) {
-                UNiagaraFunctionLibrary::SpawnSystemAtLocation(GetWorld(),
+                UNiagaraFunctionLibrary::SpawnSystemAtLocation(this,
                                                                ImpactEnemyFX,
                                                                Hit.ImpactPoint,
                                                                Hit.ImpactNormal.Rotation());

@@ -2,22 +2,14 @@
 
 
 #include "BaseEquipable.h"
-
 #include "FirstPersonAnimInstance.h"
 #include "Seethe/SeetheCharacter.h"
-#include "Kismet/GameplayStatics.h"
 
 ABaseEquipable::ABaseEquipable() {
-    PrimaryActorTick.bCanEverTick = true;
+    PrimaryActorTick.bCanEverTick = false;
 
     Mesh1P = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("Mesh1P"));
     SetRootComponent(Mesh1P);
-}
-
-void ABaseEquipable::Tick(float DeltaSeconds) {
-    Super::Tick(DeltaSeconds);
-
-    // TODO: Update LeftHandSocketTransform
 }
 
 void ABaseEquipable::Equip(ASeetheCharacter* Character) {
@@ -30,15 +22,15 @@ void ABaseEquipable::Equip(ASeetheCharacter* Character) {
         AttachToComponent(Arms, AttachmentRules, FName("S_Attach"));
         Mesh1P->SetRelativeTransform(AttachOffset);
 
-        if (UFirstPersonAnimInstance* AnimInstance = Cast<UFirstPersonAnimInstance>(Arms->GetAnimInstance())) {
-            AnimInstance->UpdateLocomotionSequences(AnimData);
+        if (UFirstPersonAnimInstance* Anim1P = Character->GetAnimInstance1P()) {
+            Anim1P->UpdateLocomotionSequences(AnimData);
 
             if (EquipMontage) {
-                const auto Duration = AnimInstance->Montage_Play(EquipMontage);
-                if (Duration > 0.f) {
+                const auto Duration = Anim1P->Montage_Play(EquipMontage);
+                if (Duration > 0.0f) {
                     FOnMontageEnded End;
                     End.BindUObject(this, &ABaseEquipable::OnEquipMontageEnded);
-                    AnimInstance->Montage_SetEndDelegate(End, EquipMontage);
+                    Anim1P->Montage_SetEndDelegate(End, EquipMontage);
                     return;
                 }
             }
@@ -52,18 +44,18 @@ void ABaseEquipable::UnEquip(ASeetheCharacter* Character) {
     if (!Character) { return; }
 
     if (const auto* Arms = Character->GetMesh1P()) {
-        if (UFirstPersonAnimInstance* AnimInstance = Cast<UFirstPersonAnimInstance>(Arms->GetAnimInstance())) {
+        if (UFirstPersonAnimInstance* Anim1P = Character->GetAnimInstance1P()) {
             if (UnEquipMontage) {
-                const auto Duration = AnimInstance->Montage_Play(UnEquipMontage);
-                if (Duration > 0.f) {
+                const auto Duration = Anim1P->Montage_Play(UnEquipMontage);
+                if (Duration > 0.0f) {
                     FOnMontageEnded End;
-                    End.BindUObject(this, &ABaseEquipable::OnUnEquipMontageEnded, AnimInstance);
-                    AnimInstance->Montage_SetEndDelegate(End, UnEquipMontage);
+                    End.BindUObject(this, &ABaseEquipable::OnUnEquipMontageEnded, Anim1P);
+                    Anim1P->Montage_SetEndDelegate(End, UnEquipMontage);
                     return;
                 }
             }
 
-            OnUnEquipMontageEnded(nullptr, false, AnimInstance);
+            OnUnEquipMontageEnded(nullptr, false, Anim1P);
         }
     }
 }
@@ -72,18 +64,18 @@ void ABaseEquipable::Drop(ASeetheCharacter* Character) {
     if (!Character) { return; }
 
     if (const auto* Arms = Character->GetMesh1P()) {
-        if (UFirstPersonAnimInstance* AnimInstance = Cast<UFirstPersonAnimInstance>(Arms->GetAnimInstance())) {
+        if (UFirstPersonAnimInstance* Anim1P = Character->GetAnimInstance1P()) {
             if (DropMontage) {
-                const auto Duration = AnimInstance->Montage_Play(DropMontage);
-                if (Duration > 0.f) {
+                const auto Duration = Anim1P->Montage_Play(DropMontage);
+                if (Duration > 0.0f) {
                     FOnMontageEnded End;
-                    End.BindUObject(this, &ABaseEquipable::OnDropMontageEnded, AnimInstance);
-                    AnimInstance->Montage_SetEndDelegate(End, DropMontage);
+                    End.BindUObject(this, &ABaseEquipable::OnDropMontageEnded, Anim1P);
+                    Anim1P->Montage_SetEndDelegate(End, DropMontage);
                     return;
                 }
             }
 
-            OnDropMontageEnded(nullptr, false, AnimInstance);
+            OnDropMontageEnded(nullptr, false, Anim1P);
         }
     }
 }

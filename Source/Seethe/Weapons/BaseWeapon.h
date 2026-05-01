@@ -20,13 +20,13 @@ public:
     ABaseWeapon();
 
     UPROPERTY(EditAnywhere, Category="Stats")
-    float BaseDamage{20.0f};
+    float BaseDamage {20.0f};
 
     UPROPERTY(EditAnywhere, Category="Stats")
-    float HeadshotMultiplier{2.0f};
+    float HeadshotMultiplier {2.0f};
 
     UPROPERTY(EditAnywhere, Category="Stats")
-    float AttackRate{0.2f};
+    float AttackRate {0.2f};
 
     /** ABaseEquipable overrides **/
     virtual void Use(ASeetheCharacter* Character) override { Attack(Character); };
@@ -58,6 +58,9 @@ protected:
     TObjectPtr<UAnimMontage> AttackMontage;
 
     UPROPERTY(EditAnywhere, Category="Weapon")
+    TObjectPtr<UNiagaraSystem> AttackFX;
+
+    UPROPERTY(EditAnywhere, Category="Weapon")
     TObjectPtr<UNiagaraSystem> ImpactFX;
 
     UPROPERTY(EditAnywhere, Category="Weapon")
@@ -78,5 +81,5 @@ protected:
     UPROPERTY(EditAnywhere, Category="Weapon")
     TObjectPtr<UForceFeedbackEffect> ImpactFFB;
 
-    float LastAttackTime{0.0f};
+    float LastAttackTime {0.0f};
 };
