@@ -3,11 +3,14 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "FootstepAudioData.h"
+#include "FootstepSurface.h"
 #include "InventoryItem.h"
 #include "WeaponInterface.h"
 #include "GameFramework/Character.h"
 #include "Interfaces/EquipableInterface.h"
 #include "Interfaces/InteractableInterface.h"
+#include "LocomotionState.h"
 #include "SeetheCharacter.generated.h"
 
 class ABaseEquipable;
@@ -22,8 +25,16 @@ class UInventoryWidget;
 class UInventorySlotWidget;
 class UInventoryItemData;
 class UCharacterInputData;
+class UFootstepAudioData;
+class UCharacterAnimInstance;
 
 struct FInputActionValue;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnEquippedItemChanged, ABaseEquipable*, Equipable);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnHealthChanged, float, HealthPercent);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPlayerIdleInactive);
 
 UCLASS()
 class SEETHE_API ASeetheCharacter : public ACharacter {
@@ -46,6 +57,10 @@ public:
 
     virtual void BeginPlay() override;
     virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+    virtual void Jump() override;
+
+    UFUNCTION()
+    virtual void Landed(const FHitResult& Hit) override;
 
     /** Input methods **/
     void OnMove(const FInputActionValue& Value);
@@ -59,49 +74,119 @@ public:
     void OnSprintStarted();
     void OnSprintEnded();
 
-protected:
-    /** Properties (Editable) **/
-    UPROPERTY(EditAnywhere, Category = "Input")
-    TObjectPtr<UCharacterInputData> InputData;
-
-    UPROPERTY(EditAnywhere, Category = "Controller")
-    float WalkSpeed {200.0f};
-
-    UPROPERTY(EditAnywhere, Category = "Controller")
-    float SprintSpeed {325.0f};
-
-    UPROPERTY(EditAnywhere, Category = "Controller")
-    float JumpHeight {325.0f};
-
-    UPROPERTY(EditAnywhere, Category = "Weapon")
-    float DrawbackSpeed {15.0f};
-
-    UPROPERTY(EditAnywhere, Category = "Sway")
-    float SwayAmount {1.0f};
-
-    UPROPERTY(EditAnywhere, Category = "Sway")
-    float MaxSway {5.0f};
-
-    UPROPERTY(EditAnywhere, Category = "Sway")
-    float SwaySmoothing {15.0f};
-
-    UPROPERTY(EditAnywhere, Category = "First Person")
-    TSubclassOf<UCameraShakeBase> HitCameraShake;
-
-    UPROPERTY(EditAnywhere, Category = "First Person")
-    TObjectPtr<UForceFeedbackEffect> HitFFB;
-
-    /** Properties (Read-Only) **/
-    UPROPERTY(BlueprintReadOnly, Category = "Weapon")
-    float DrawbackDisplacement;
-
-    UPROPERTY(BlueprintReadOnly, Category = "Sway")
-    FRotator EquipSwayRotation;
-
+    void SetHealth(int32 Health);
     void Die();
+    void HandleFootstep(EFootstepType Type);
+
+    /** 
+     * Returns a value where in range [-1, 1] where:
+     *   - 0 = Not strafing at all
+     *   - -1 = Strafing Left
+     *   - 1 = Strafing Right
+     **/
+    UFUNCTION(BlueprintPure)
+    float GetStrafeFactor() const;
+
+    UFUNCTION(BlueprintPure)
+    float GetStrafeBlendAlpha() const;
+
+    UFUNCTION(BlueprintPure)
+    FRotator GetStrafeRotation() const;
+
+    UFUNCTION(BlueprintPure)
+    FVector GetStrafeTranslation() const;
+
+    UFUNCTION()
+    void OnStopLook();
 
     UFUNCTION()
     void Respawn();
+
+    UPROPERTY(BlueprintAssignable)
+    FOnEquippedItemChanged OnEquippedItemChanged;
+
+    UPROPERTY(BlueprintAssignable)
+    FOnHealthChanged OnHealthChanged;
+
+    UPROPERTY(BlueprintAssignable)
+    FOnPlayerIdleInactive OnPlayerIdleInactive;
+
+    UPROPERTY(BlueprintReadOnly, Category = "Idle")
+    float IdleTime {0.0f};
+
+    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Idle")
+    float IdleInactiveThreshold {15.0f}; // In seconds
+
+    UPROPERTY(BlueprintReadOnly, Category = "Idle")
+    bool bIsIdleInactive = false;
+
+    UPROPERTY(EditAnywhere)
+    TObjectPtr<UCurveFloat> BobCurveZ;
+
+    UPROPERTY(EditAnywhere)
+    TObjectPtr<UCurveFloat> BobCurveY;
+
+    UPROPERTY(EditAnywhere)
+    TObjectPtr<UCurveFloat> FootstepCurve;
+
+    UPROPERTY(EditAnywhere)
+    TSubclassOf<UCameraShakeBase> BobShakeJump;
+
+    UPROPERTY(EditAnywhere)
+    TSubclassOf<UCameraShakeBase> BobShakeJumpLand;
+
+protected:
+    /** Properties (Editable) **/
+    UPROPERTY(EditAnywhere)
+    TObjectPtr<UCharacterInputData> InputData;
+
+    UPROPERTY(EditAnywhere)
+    float WalkSpeed {200.0f};
+
+    UPROPERTY(EditAnywhere)
+    float SprintSpeed {325.0f};
+
+    UPROPERTY(EditAnywhere)
+    float JumpHeight {325.0f};
+
+    UPROPERTY(EditAnywhere)
+    float DrawbackSpeed {15.0f};
+
+    UPROPERTY(EditAnywhere)
+    float SwayAmount {1.0f};
+
+    UPROPERTY(EditAnywhere)
+    float MaxSway {5.0f};
+
+    UPROPERTY(EditAnywhere)
+    float SwaySmoothing {15.0f};
+
+    UPROPERTY(EditAnywhere)
+    float SwayStopSmoothing {10.f};
+
+    /** How much to rotate the arms **/
+    UPROPERTY(EditAnywhere)
+    float StrafeRotationAmount {10.0f};
+
+    /** How much to pull them in by **/
+    UPROPERTY(EditAnywhere)
+    float StrafeTranslationAmount {5.0f};
+
+    UPROPERTY(EditAnywhere)
+    TSubclassOf<UCameraShakeBase> HitCameraShake;
+
+    UPROPERTY(EditAnywhere)
+    TObjectPtr<UForceFeedbackEffect> HitFFB;
+
+    UPROPERTY(EditDefaultsOnly, BlueprintReadOnly)
+    TMap<EFootstepSurface, TSoftObjectPtr<UFootstepAudioData>> FootstepDataMap;
+
+    /** Properties (Read-Only) **/
+    UPROPERTY(BlueprintReadOnly)
+    float DrawbackDisplacement;
+
+    UPROPERTY(BlueprintReadOnly)
+    FRotator EquipSwayRotation;
 
 public:
     virtual void Tick(float DeltaTime) override;
@@ -109,59 +194,68 @@ public:
     virtual void PossessedBy(AController* NewController) override;
 
     /** Public Getters **/
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     USkeletalMeshComponent* GetMesh1P() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     UCameraComponent* GetCamera1P() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     UInventoryComponent* GetInventory() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     ABaseEquipable* GetCurrentEquipable() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     ABaseWeapon* GetCurrentWeapon() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     bool HasEquippedItem() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     float GetHealthPercent() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     class AHUDBase* GetHUDInstance() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     UHUDWidget* GetHUDWidget() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     UInventoryWidget* GetInventoryWidget() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     APlayerCameraManager* GetPlayerCameraManager() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
-    UFirstPersonAnimInstance* GetAnimInstance1P() const;
+    UFUNCTION(BlueprintPure)
+    UCharacterAnimInstance* GetAnimInstance1P() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     FLeftHandSocketResult GetLeftHandSocketTransform() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     bool IsSprinting() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
+    bool IsMoving() const;
+
+    UFUNCTION(BlueprintPure)
     bool IsGrounded() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     bool IsFalling() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     float GetWalkSpeed() const;
 
-    UFUNCTION(BlueprintPure, Category="Seethe")
+    UFUNCTION(BlueprintPure)
     float GetSprintSpeed() const;
+
+    UFUNCTION(BlueprintPure)
+    float GetMovementSpeed() const;
+
+    UFUNCTION(BlueprintPure)
+    ELocomotionState GetLocomotionState() const;
 
     virtual float TakeDamage(float DamageAmount,
                              const FDamageEvent& DamageEvent,
@@ -171,22 +265,41 @@ public:
     void Equip(const UInventoryItemEquipable* Item);
     void UnEquip();
     void Drop();
+    void SetCurrentEquipable(ABaseEquipable* NewCurrentEquipable);
+    void SetLocomotionState(const ELocomotionState& NewLocomotionState);
 
-    UFUNCTION(BlueprintCallable, Category = "Inventory")
-    void UseItem(int32 Index, const EInventoryCategory& Category);
+    UFUNCTION(BlueprintCallable)
+    void UseItem(int32 Index, const EInventoryCategory& Category) const;
 
 private:
-    float BobAmplitude = 2.0f;
-    float BobTimer     = 0.0f;
-    float BobFrequency = 7.0f;
-    FVector DefaultCameraLocation;
-    int32 CurrentHealth    = 100;
-    float InteractRange    = 300.0f;
-    float EnemyDetectRange = 1200.0f;
-    float LookAxisX        = 0, LookAxisY = 0;
-    FTransform EquipableOffset;
+    int32 CurrentHealth {100};
     bool bSprinting {false};
+    float InteractRange {200.0f};
+    float EnemyDetectRange {1200.0f};
+    float LookAxisX {0.0f};
+    float LookAxisY {0.0f};
+    float BobAmplitudeZ {-5.0f};
+    float BobAmplitudeSprintingZ {-10.0f};
+    float BobAmplitudeY {-2.0f};
+    float BobAmplitudeSprintingY {-3.0f};
+    float CurveTime {0.0f}; // Time accumulator for head bob curves
+    float CurrentBobSpeed {1.0f};
+    float CurrentAmplitudeZ {0.0f};
+    float CurrentAmplitudeY {0.0f};
+    float BobTransitionSpeed {3.0f};
+    float FootstepsPrevious {0.0f};
+    float FootstepsThreshold {0.5f};
+
+    FVector DefaultCameraLocation;
+    FTransform EquipableOffset;
     FTimerHandle RespawnHandle;
+    ELocomotionState CurrentLocomotionState {ELocomotionState::Idle};
+
+    UPROPERTY()
+    float SmoothedStrafeFactor {0.0f};
+
+    UPROPERTY(EditAnywhere)
+    float StrafeInterpSpeed {4.0f};
 
     UPROPERTY()
     TMap<UClass*, ABaseEquipable*> CachedEquipables;
@@ -202,10 +315,11 @@ private:
 
     void Mesh1PSway(float DeltaTime);
     void Mesh1PAvoidClipping(float DeltaTime);
-    void CameraBob(float DeltaTime);
     void TraceForInteractables();
     void TraceForEnemies() const;
-
-    UFUNCTION()
-    void OnStopLook();
+    void UpdateEquipable();
+    void UpdateHealth();
+    void UpdateIdleStatus(float DeltaTime);
+    void UpdateStrafeFactor(float DeltaTime);
+    void UpdateCurveDrivenEffects(float DeltaTime);
 };

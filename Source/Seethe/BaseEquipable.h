@@ -3,7 +3,9 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "FirstPersonAnimData.h"
+#include "CrosshairWidget.h"
+#include "CharacterLocomotionData.h"
+#include "EquipMontageNotify.h"
 #include "GameFramework/Actor.h"
 #include "Seethe/Interfaces/EquipableInterface.h"
 #include "BaseEquipable.generated.h"
@@ -23,51 +25,50 @@ public:
     virtual void UnEquip(ASeetheCharacter* Character) override;
     virtual void Drop(ASeetheCharacter* Character) override;
     virtual void Use(ASeetheCharacter* Character) override {};
+    virtual FString GetName() override { return {}; }
+    void OnEquipNotify(EEquipMontageNotifyAction EquipAction);
 
     /** Properties **/
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Equipable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
     FTransform AttachOffset;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Equipable")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
     FName LeftHandSocket {"S_Grip_L"};
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Equipable")
-    TObjectPtr<UFirstPersonAnimData> AnimData;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TObjectPtr<UCharacterLocomotionData> Locomotion;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Equipable")
-    TObjectPtr<UAnimMontage> EquipMontage;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TObjectPtr<class UEquipableAnimationData> EquipAnimations;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Equipable")
-    TObjectPtr<UAnimMontage> UnEquipMontage;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TObjectPtr<UEquipableAnimationData> UnEquipAnimations;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Equipable")
-    TObjectPtr<UAnimMontage> DropMontage;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TObjectPtr<UEquipableAnimationData> DropAnimations;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Equipable")
-    TObjectPtr<UTexture2D> CrosshairTexture;
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TSubclassOf<UCrosshairWidget> CrosshairWidgetClass;
 
     /** Helpers **/
-    UFUNCTION(BlueprintPure, Category="Equipable")
+    UFUNCTION(BlueprintPure)
     USkeletalMeshComponent* GetMesh1P() const;
 
-    UFUNCTION(BlueprintPure, Category="Equipable")
+    UFUNCTION(BlueprintPure)
     bool HasLeftHandSocket() const;
 
-    UFUNCTION(BlueprintPure, Category="Equipable")
+    UFUNCTION(BlueprintPure)
     FTransform GetLeftHandSocketTransform() const;
 
 protected:
-    UFUNCTION()
-    void OnEquipMontageEnded(UAnimMontage* InMontage,
-                             bool bInterrupted);
+    virtual void OnEquipNotify_Equip();
+    virtual void OnEquipNotify_UnEquip();
+    virtual void OnEquipNotify_Drop();
 
-    UFUNCTION()
-    void OnUnEquipMontageEnded(UAnimMontage* InMontage,
-                               bool bInterrupted,
-                               class UFirstPersonAnimInstance* InAnimInstance);
-
-    UFUNCTION()
-    void OnDropMontageEnded(UAnimMontage* InMontage,
-                            bool bInterrupted,
-                            UFirstPersonAnimInstance* InAnimInstance);
+    virtual void OnMontageEnded_Equip(UAnimMontage*,
+                                      bool);
+    virtual void OnMontageEnded_UnEquip(UAnimMontage*,
+                                        bool);
+    virtual void OnMontageEnded_Drop(UAnimMontage*,
+                                     bool);
 };

@@ -3,12 +3,9 @@
 
 #include "AxeWeapon.h"
 #include "Seethe/SeetheCharacter.h"
-#include "Seethe/UI/HUDWidget.h"
-#include "NiagaraFunctionLibrary.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
-#include "Seethe/FirstPersonAnimInstance.h"
-#include "Seethe/SeetheUtilities.h"
+#include "CharacterAnimInstance.h"
 
 AAxeWeapon::AAxeWeapon() {
     PrimaryActorTick.bCanEverTick = true;
@@ -28,10 +25,6 @@ void AAxeWeapon::Attack(ASeetheCharacter* Character) {
     }
 
     Character->GetAnimInstance1P()->Montage_Play(SelectedMontage);
-
-    if (AttackSound) {
-        UGameplayStatics::PlaySoundAtLocation(this, AttackSound, GetActorLocation());
-    }
 }
 
 void AAxeWeapon::Tick(const float DeltaSeconds) {
@@ -73,27 +66,29 @@ void AAxeWeapon::PerformTrace(const FVector& Start, const FVector& End) {
         if (Hit.BoneName != NAME_None) {
             OnHit(Hit);
 
-            if (ImpactSoundEnemy) {
-                UGameplayStatics::PlaySoundAtLocation(this, ImpactSoundEnemy, Hit.ImpactPoint, FRotator::ZeroRotator);
-            }
-
-            if (ImpactEnemyDecal) {
-                USeetheUtilities::SpawnHitDecalWithRandomRollRotation(this,
-                                                                      ImpactEnemyDecal,
-                                                                      FVector(24.0f, 24.0f, 24.0f),
-                                                                      Hit);
-            }
-
-            if (ImpactEnemyFX) {
-                UNiagaraFunctionLibrary::SpawnSystemAtLocation(this,
-                                                               ImpactEnemyFX,
-                                                               Hit.ImpactPoint,
-                                                               Hit.ImpactNormal.Rotation());
-            }
-
-            if (const ASeetheCharacter* Character = Cast<ASeetheCharacter>(GetOwner())) {
-                PlayImpactForceFeedback(Character);
-            }
+            // if (ImpactSoundEnemy) {
+            //     UGameplayStatics::PlaySoundAtLocation(this, ImpactSoundEnemy, Hit.ImpactPoint, FRotator::ZeroRotator);
+            // }
+            //
+            // if (ImpactEnemyDecal) {
+            //     USeetheUtilities::SpawnHitDecalWithRandomRollRotation(this,
+            //                                                           ImpactEnemyDecal,
+            //                                                           FVector(24.0f, 24.0f, 24.0f),
+            //                                                           Hit);
+            // }
+            //
+            // if (ImpactEnemyFX) {
+            //     UNiagaraFunctionLibrary::SpawnSystemAtLocation(this,
+            //                                                    ImpactEnemyFX,
+            //                                                    Hit.ImpactPoint,
+            //                                                    Hit.ImpactNormal.Rotation());
+            // }
+            //
+            // if (WeaponData->ImpactFFB) {
+            //     if (auto* PC = Cast<APlayerController>(Cast<ASeetheCharacter>(GetOwner())->GetController())) {
+            //         PC->ClientPlayForceFeedback(WeaponData->AttackFFB);
+            //     }
+            // }
         } else {
             // Handle FX
         }
@@ -123,9 +118,9 @@ void AAxeWeapon::OnHit(const FHitResult& HitResult) {
                                   nullptr);
 
     if (const ASeetheCharacter* Character = Cast<ASeetheCharacter>(GetOwner())) {
-        if (auto* HUD = Character->GetHUDWidget()) {
-            HUD->TriggerHitmarker();
-        }
+        // if (auto* HUD = Character->GetHUDWidget()) {
+        //     HUD->TriggerHitmarker();
+        // }
     }
 
     bIsAttacking = false; // Prevent multiple strikes   

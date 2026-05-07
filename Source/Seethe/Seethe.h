@@ -9,6 +9,10 @@
 #define ECC_PROJECTILE ECC_GameTraceChannel1
 /** ECC_GameTraceChannel2 **/
 #define ECC_ENEMY ECC_GameTraceChannel2
+/** ECC_GameTraceChannel3 **/
+#define ECC_NIAGARA_ONLY ECC_GameTraceChannel3
+
+#define FTEXT(str) FText::FromString(str)
 
 namespace Seethe {
     namespace Constants {

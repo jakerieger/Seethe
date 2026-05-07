@@ -5,23 +5,25 @@
 
 #include "InputActionValue.h"
 #include "EnhancedInputComponent.h"
-#include "EnhancedInputSubsystems.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Camera/CameraComponent.h"
 #include "GameFramework/GameModeBase.h"
 
 #include "Seethe.h"
-#include "Weapons/BaseWeapon.h"
+#include "BaseWeapon.h"
 #include "BaseEquipable.h"
 #include "DeathScreenWidget.h"
-#include "FirstPersonAnimInstance.h"
+#include "CharacterAnimInstance.h"
 #include "SeetheGameMode.h"
-#include "Inventory/InventoryComponent.h"
-#include "UI/HUDBase.h"
-#include "UI/HUDWidget.h"
-#include "UI/InventoryWidget.h"
+#include "InventoryComponent.h"
+#include "HUDBase.h"
+#include "HUDWidget.h"
+#include "InventoryWidget.h"
 #include "CharacterInputData.h"
+#include "FootstepAudioData.h"
+#include "Components/CapsuleComponent.h"
+#include "Kismet/GameplayStatics.h"
 
 ASeetheCharacter::ASeetheCharacter() {
     FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
@@ -50,18 +52,38 @@ void ASeetheCharacter::BeginPlay() {
     DefaultCameraLocation = FirstPersonCamera->GetRelativeLocation();
     CurrentHealth         = 100;
 
-    if (GetInventoryWidget()) {
-        GetInventoryWidget()->InitializeWidget(GetInventory());
-    }
-
-    if (GetHUDWidget()) {
-        GetHUDWidget()->UpdateHealth(GetHealthPercent());
-        GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::Dead);
-    }
+    UpdateHealth();
+    UpdateEquipable();
 }
 
 void ASeetheCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason) {
     Super::EndPlay(EndPlayReason);
+}
+
+void ASeetheCharacter::Jump() {
+    Super::Jump();
+
+    HandleFootstep(EFootstepType::Jump);
+
+    if (BobShakeJump) {
+        auto* PC = Cast<APlayerController>(GetController());
+        if (PC) {
+            PC->ClientStartCameraShake(BobShakeJump, 1.0f);
+        }
+    }
+}
+
+void ASeetheCharacter::Landed(const FHitResult& Hit) {
+    Super::Landed(Hit);
+
+    HandleFootstep(EFootstepType::Land);
+
+    if (BobShakeJumpLand) {
+        auto* PC = Cast<APlayerController>(GetController());
+        if (PC) {
+            PC->ClientStartCameraShake(BobShakeJumpLand, 1.0f);
+        }
+    }
 }
 
 void ASeetheCharacter::OnMove(const FInputActionValue& Value) {
@@ -81,13 +103,10 @@ void ASeetheCharacter::OnLook(const FInputActionValue& Value) {
         LookAxisX = LookAxisVector.X;
         LookAxisY = LookAxisVector.Y;
 
+        // TODO: Convert these to delegates
         GetHUDWidget()->UpdateLastLookInput(LookAxisVector);
         GetInventoryWidget()->UpdateLookAxes(LookAxisX, LookAxisY);
     }
-}
-
-void ASeetheCharacter::OnStopLook() {
-    GetHUDWidget()->UpdateLastLookInput(FVector2D::ZeroVector);
 }
 
 void ASeetheCharacter::OnUse() {
@@ -160,6 +179,11 @@ void ASeetheCharacter::OnSprintEnded() {
     bSprinting                           = false;
 }
 
+void ASeetheCharacter::SetHealth(const int32 Health) {
+    CurrentHealth = Health;
+    UpdateHealth();
+}
+
 void ASeetheCharacter::Die() {
     // Drop all our inventory items in place
     if (HasEquippedItem()) {
@@ -188,6 +212,75 @@ void ASeetheCharacter::Die() {
         false);
 }
 
+void ASeetheCharacter::HandleFootstep(const EFootstepType Type) {
+    const UCapsuleComponent* Capsule = GetCapsuleComponent();
+    const FVector CapsuleBottom      = GetActorLocation() - FVector(0, 0, Capsule->GetScaledCapsuleHalfHeight());
+
+    const FVector TraceStart = CapsuleBottom + FVector(0, 0, 10.0f); // Start slightly above floor
+    const FVector TraceEnd = CapsuleBottom - FVector(0, 0, 20.f); // Check for 10 units beyond the bottom of our capsule
+
+    FHitResult Hit;
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(this);
+    Params.bReturnPhysicalMaterial = true;
+
+    const bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params);
+    if (!bHit) { return; }
+
+    const auto Surface = static_cast<EFootstepSurface>(Hit.PhysMaterial->SurfaceType.GetIntValue());
+    UFootstepAudioData* AudioData {nullptr};
+    if (const auto* Found = FootstepDataMap.Find(Surface)) {
+        AudioData = Found->LoadSynchronous();
+    }
+    // Failed to load or didn't exist
+    if (!AudioData) {
+        AudioData = FootstepDataMap.Find(EFootstepSurface::Default)->LoadSynchronous();
+    }
+    // Failed to loud
+    if (!AudioData) { return; }
+
+    USoundBase* Sound = AudioData->GetSoundForType(Type);
+    if (Sound) {
+        UGameplayStatics::SpawnSoundAtLocation(this, Sound, Hit.Location);
+    }
+}
+
+float ASeetheCharacter::GetStrafeFactor() const {
+    const FVector RightVector        = GetActorRightVector();
+    const FVector VelocityNormalized = GetVelocity().GetSafeNormal();
+    return FVector::DotProduct(VelocityNormalized, RightVector);
+}
+
+float ASeetheCharacter::GetStrafeBlendAlpha() const {
+    return FMath::Abs(SmoothedStrafeFactor);
+}
+
+FRotator ASeetheCharacter::GetStrafeRotation() const {
+    FRotator Rotation {FRotator::ZeroRotator};
+
+    if (SmoothedStrafeFactor < 0) {
+        Rotation.Pitch = -StrafeRotationAmount;
+    } else {
+        Rotation.Pitch = StrafeRotationAmount;
+    }
+
+    return Rotation;
+}
+
+FVector ASeetheCharacter::GetStrafeTranslation() const {
+    FVector Translation {FVector::ZeroVector};
+
+    if (FMath::Abs(SmoothedStrafeFactor) > 0) {
+        Translation.Y = -StrafeTranslationAmount;
+    }
+
+    return Translation;
+}
+
+void ASeetheCharacter::OnStopLook() {
+    GetHUDWidget()->UpdateLastLookInput(FVector2D::ZeroVector);
+}
+
 void ASeetheCharacter::Respawn() {
     AController* Saved = GetController();
 
@@ -202,12 +295,98 @@ void ASeetheCharacter::Respawn() {
     Destroy();
 }
 
+void ASeetheCharacter::UpdateStrafeFactor(const float DeltaTime) {
+    const float TargetStrafeFactor = GetStrafeFactor();
+    SmoothedStrafeFactor = FMath::FInterpTo(SmoothedStrafeFactor, TargetStrafeFactor, DeltaTime, StrafeInterpSpeed);
+}
+
+void ASeetheCharacter::UpdateCurveDrivenEffects(const float DeltaTime) {
+    if (IsMoving() && IsGrounded()) {
+        const bool bIsSprinting = IsSprinting();
+
+        const float TargetBobSpeed = bIsSprinting ? 1.5f : 1.0f;
+        const float TargetAmpZ     = bIsSprinting ? BobAmplitudeSprintingZ : BobAmplitudeZ;
+        const float TargetAmpY     = bIsSprinting ? BobAmplitudeSprintingY : BobAmplitudeY;
+
+        CurrentBobSpeed   = FMath::FInterpTo(CurrentBobSpeed, TargetBobSpeed, DeltaTime, BobTransitionSpeed);
+        CurrentAmplitudeZ = FMath::FInterpTo(CurrentAmplitudeZ, TargetAmpZ, DeltaTime, BobTransitionSpeed);
+        CurrentAmplitudeY = FMath::FInterpTo(CurrentAmplitudeY, TargetAmpY, DeltaTime, BobTransitionSpeed);
+
+        CurveTime += DeltaTime * CurrentBobSpeed;
+
+        if (!BobCurveZ || !BobCurveY || !FootstepCurve) {
+            UE_LOG(LogTemp, Error, TEXT("UpdateHeadBob() : Missing BobCurveZ and/or BobCurveY"))
+            return;
+        }
+
+        float MinZ, MaxZ;
+        BobCurveZ->GetTimeRange(MinZ, MaxZ);
+        const FVector2f RangeZ {MinZ, MaxZ};
+
+        float MinY, MaxY;
+        BobCurveY->GetTimeRange(MinY, MaxY);
+        const FVector2f RangeY {MinY, MaxY};
+
+        // Curves have different lengths
+        if (RangeZ != RangeY) {
+            UE_LOG(LogTemp, Error, TEXT("UpdateHeadBob() : RangeZ != RangeY"))
+            return;
+        }
+
+        // TODO: Cache this in BeginPlay
+        const float MinTime = RangeZ.X;
+        const float MaxTime = RangeZ.Y;
+        const auto Duration = MaxTime - MinTime;
+
+        if (CurveTime > MaxTime) {
+            CurveTime -= Duration;
+        }
+
+        const auto BobZ           = BobCurveZ->GetFloatValue(CurveTime);
+        const auto BobY           = BobCurveY->GetFloatValue(CurveTime);
+        const auto FootstepsValue = FootstepCurve->GetFloatValue(CurveTime);
+
+        // Trigger footstep sound if this is the peak
+        {
+            const bool bWasBelow = FootstepsPrevious < FootstepsThreshold;
+            const bool bIsAbove  = FootstepsValue >= FootstepsThreshold;
+
+            if (bWasBelow && bIsAbove) {
+                HandleFootstep(bIsSprinting ? EFootstepType::Sprint : EFootstepType::Walk);
+            }
+
+            FootstepsPrevious = FootstepsValue;
+        }
+
+        FVector CameraLocation = GetCamera1P()->GetRelativeLocation();
+        CameraLocation.Z       = DefaultCameraLocation.Z + (BobZ * CurrentAmplitudeZ);
+        CameraLocation.Y       = DefaultCameraLocation.Y + (BobY * CurrentAmplitudeY);
+
+        GetCamera1P()->SetRelativeLocation(CameraLocation);
+
+        return;
+    }
+
+    // Smooth reset amplitudes
+    CurrentAmplitudeZ = FMath::FInterpTo(CurrentAmplitudeZ, 0.f, DeltaTime, BobTransitionSpeed);
+    CurrentAmplitudeY = FMath::FInterpTo(CurrentAmplitudeY, 0.f, DeltaTime, BobTransitionSpeed);
+
+    // Smooth reset camera
+    const auto TargetCameraLocation = FMath::VInterpTo(GetCamera1P()->GetRelativeLocation(),
+                                                       DefaultCameraLocation,
+                                                       DeltaTime,
+                                                       BobTransitionSpeed);
+    GetCamera1P()->SetRelativeLocation(TargetCameraLocation);
+}
+
 void ASeetheCharacter::Tick(const float DeltaTime) {
     Super::Tick(DeltaTime);
 
     Mesh1PSway(DeltaTime);
     Mesh1PAvoidClipping(DeltaTime);
-    CameraBob(DeltaTime);
+    UpdateIdleStatus(DeltaTime);
+    UpdateStrafeFactor(DeltaTime);
+    UpdateCurveDrivenEffects(DeltaTime);
 
     TraceForInteractables();
     TraceForEnemies();
@@ -246,15 +425,6 @@ void ASeetheCharacter::PossessedBy(AController* NewController) {
     APlayerController* PC = Cast<APlayerController>(NewController);
     if (PC) {
         PC->SetInputMode(FInputModeGameOnly {});
-
-        if (GetInventoryWidget()) {
-            GetInventoryWidget()->InitializeWidget(GetInventory());
-        }
-
-        if (GetHUDWidget()) {
-            GetHUDWidget()->UpdateHealth(GetHealthPercent());
-            GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::Dead);
-        }
     }
 }
 
@@ -265,11 +435,6 @@ ABaseEquipable* ASeetheCharacter::GetCurrentEquipable() const { return CurrentEq
 ABaseWeapon* ASeetheCharacter::GetCurrentWeapon() const { return Cast<ABaseWeapon>(CurrentEquipable); }
 bool ASeetheCharacter::HasEquippedItem() const { return CurrentEquipable != nullptr; }
 float ASeetheCharacter::GetHealthPercent() const { return CurrentHealth / 100.0f; }
-bool ASeetheCharacter::IsSprinting() const { return bSprinting; }
-bool ASeetheCharacter::IsGrounded() const { return !GetMovementComponent()->IsFalling(); }
-bool ASeetheCharacter::IsFalling() const { return FMath::IsNegative(GetVelocity().Z); }
-float ASeetheCharacter::GetWalkSpeed() const { return WalkSpeed; }
-float ASeetheCharacter::GetSprintSpeed() const { return SprintSpeed; }
 
 AHUDBase* ASeetheCharacter::GetHUDInstance() const {
     if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
@@ -306,8 +471,8 @@ APlayerCameraManager* ASeetheCharacter::GetPlayerCameraManager() const {
     return nullptr;
 }
 
-UFirstPersonAnimInstance* ASeetheCharacter::GetAnimInstance1P() const {
-    return Cast<UFirstPersonAnimInstance>(GetMesh1P()->GetAnimInstance());
+UCharacterAnimInstance* ASeetheCharacter::GetAnimInstance1P() const {
+    return Cast<UCharacterAnimInstance>(GetMesh1P()->GetAnimInstance());
 }
 
 FLeftHandSocketResult ASeetheCharacter::GetLeftHandSocketTransform() const {
@@ -322,6 +487,28 @@ FLeftHandSocketResult ASeetheCharacter::GetLeftHandSocketTransform() const {
     return Result;
 }
 
+bool ASeetheCharacter::IsSprinting() const { return bSprinting; }
+
+bool ASeetheCharacter::IsMoving() const {
+    return GetVelocity().SizeSquared() > 10.0f;
+}
+
+bool ASeetheCharacter::IsGrounded() const { return !GetMovementComponent()->IsFalling(); }
+
+bool ASeetheCharacter::IsFalling() const { return GetVelocity().Z < 0.0f; }
+
+float ASeetheCharacter::GetWalkSpeed() const { return WalkSpeed; }
+
+float ASeetheCharacter::GetSprintSpeed() const { return SprintSpeed; }
+
+float ASeetheCharacter::GetMovementSpeed() const {
+    return GetMovementComponent()->Velocity.Length();
+}
+
+ELocomotionState ASeetheCharacter::GetLocomotionState() const {
+    return CurrentLocomotionState;
+}
+
 float ASeetheCharacter::TakeDamage(const float DamageAmount,
                                    const FDamageEvent& DamageEvent,
                                    AController* EventInstigator,
@@ -329,9 +516,7 @@ float ASeetheCharacter::TakeDamage(const float DamageAmount,
     const float DamageToApply = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
 
     CurrentHealth -= FMath::Floor(DamageToApply);
-    if (GetHUDWidget()) {
-        GetHUDWidget()->UpdateHealth(CurrentHealth / 100.0f);
-    }
+    UpdateHealth();
 
     if (GetPlayerCameraManager()) {
         GetPlayerCameraManager()->StartCameraShake(HitCameraShake);
@@ -355,7 +540,6 @@ void ASeetheCharacter::Equip(const UInventoryItemEquipable* Item) {
 
     if (CurrentEquipable) {
         CurrentEquipable->SetActorHiddenInGame(true);
-        GetHUDWidget()->HideCrosshair();
     }
 
     ABaseEquipable* TargetEquipable = CachedEquipables.FindRef(Item->EquipableClass);
@@ -376,11 +560,7 @@ void ASeetheCharacter::Equip(const UInventoryItemEquipable* Item) {
     CurrentEquipable = TargetEquipable;
     CurrentEquipable->Equip(this);
 
-    if (CurrentEquipable->CrosshairTexture) {
-        GetHUDWidget()
-            ->SetCrosshairTexture(CurrentEquipable->CrosshairTexture)
-            ->ShowCrosshair();
-    }
+    UpdateEquipable();
 
     if (const UHUDWidget* HUD = GetHUDWidget()) {
         FToastNotification Notification;
@@ -392,29 +572,34 @@ void ASeetheCharacter::Equip(const UInventoryItemEquipable* Item) {
 
 void ASeetheCharacter::UnEquip() {
     if (!CurrentEquipable) { return; }
-
     CurrentEquipable->UnEquip(this);
-    CurrentEquipable = nullptr;
 
-    if (UHUDWidget* HUD = GetHUDWidget()) {
-        HUD->HideCrosshair();
-    }
+    // Equipable state handled by ABaseEquipable
 }
 
 void ASeetheCharacter::Drop() {
     if (!CurrentEquipable) { return; }
-
     CachedEquipables.Remove(CurrentEquipable->GetClass());
-
     CurrentEquipable->Drop(this);
-    CurrentEquipable = nullptr;
 
-    GetHUDWidget()->HideCrosshair();
+    // Equipable state handled by ABaseEquipable
 }
 
-void ASeetheCharacter::UseItem(const int32 Index, const EInventoryCategory& Category) {
+void ASeetheCharacter::SetCurrentEquipable(ABaseEquipable* NewCurrentEquipable) {
+    CurrentEquipable = NewCurrentEquipable;
+    UpdateEquipable();
+}
+
+void ASeetheCharacter::UseItem(const int32 Index, const EInventoryCategory& Category) const {
     if (Index < 0) { return; }
-    GetInventory()->UseItem(Index, Category);
+
+    if (auto* Inventory = GetInventory()) {
+        Inventory->UseItem(Index, Category);
+    }
+}
+
+void ASeetheCharacter::SetLocomotionState(const ELocomotionState& NewLocomotionState) {
+    CurrentLocomotionState = NewLocomotionState;
 }
 
 IEquipableInterface* ASeetheCharacter::GetEquipableInterface() const {
@@ -436,8 +621,8 @@ void ASeetheCharacter::Mesh1PSway(const float DeltaTime) {
 
     EquipSwayRotation = FMath::RInterpTo(EquipSwayRotation, TargetSway, DeltaTime, SwaySmoothing);
 
-    LookAxisX = FMath::FInterpTo(LookAxisX, 0.0f, DeltaTime, 10.0f);
-    LookAxisY = FMath::FInterpTo(LookAxisY, 0.0f, DeltaTime, 10.0f);
+    LookAxisX = FMath::FInterpTo(LookAxisX, 0.0f, DeltaTime, SwayStopSmoothing);
+    LookAxisY = FMath::FInterpTo(LookAxisY, 0.0f, DeltaTime, SwayStopSmoothing);
 }
 
 void ASeetheCharacter::Mesh1PAvoidClipping(const float DeltaTime) {
@@ -461,26 +646,9 @@ void ASeetheCharacter::Mesh1PAvoidClipping(const float DeltaTime) {
                                                        Params);
     const float TargetDisplacement = bHit ? (End - WallHit.Location).Size() : 0.0f;
     DrawbackDisplacement           = FMath::FInterpTo(DrawbackDisplacement,
-                                            TargetDisplacement,
-                                            DeltaTime,
-                                            DrawbackSpeed);
-}
-
-void ASeetheCharacter::CameraBob(float DeltaTime) {
-    FVector Velocity = GetVelocity();
-    Velocity.Z       = 0; // Ignore jumping/falling
-    if (const float Speed = Velocity.Size(); Speed > 0 && !GetCharacterMovement()->IsFalling()) {
-        BobTimer            += DeltaTime * (Speed / 100.0f) * BobFrequency;
-        FVector NewLocation = DefaultCameraLocation;
-        NewLocation.Z       += FMath::Sin(BobTimer) * BobAmplitude;
-        NewLocation.Y       += FMath::Cos(BobTimer * 0.5f) * (BobAmplitude * 0.5f);
-        FirstPersonCamera->SetRelativeLocation(NewLocation);
-    } else {
-        BobTimer                 = 0.0f;
-        const FVector CurrentLoc = FirstPersonCamera->GetRelativeLocation();
-        const FVector ResetLoc   = FMath::VInterpTo(CurrentLoc, DefaultCameraLocation, DeltaTime, 10.0f);
-        FirstPersonCamera->SetRelativeLocation(ResetLoc);
-    }
+                                                      TargetDisplacement,
+                                                      DeltaTime,
+                                                      DrawbackSpeed);
 }
 
 void ASeetheCharacter::TraceForInteractables() {
@@ -503,8 +671,6 @@ void ASeetheCharacter::TraceForInteractables() {
 
                 CurrentInteractable = Hit.GetActor();
                 CurrentInteractable->LookAt();
-
-                GetHUDWidget()->SetCrosshairColor(FColor::Yellow);
             }
             return;
         }
@@ -513,8 +679,6 @@ void ASeetheCharacter::TraceForInteractables() {
     if (CurrentInteractable) {
         CurrentInteractable->LookAway();
         CurrentInteractable = nullptr;
-
-        GetHUDWidget()->SetCrosshairColor(FColor::White);
     }
 }
 
@@ -530,6 +694,36 @@ void ASeetheCharacter::TraceForEnemies() const {
                                                            End,
                                                            ECC_ENEMY,
                                                            Params);
+}
 
-    GetHUDWidget()->SetCrosshairColor(bHit && Hit.GetActor() ? FColor::Red : FColor::White);
+void ASeetheCharacter::UpdateEquipable() {
+    if (OnEquippedItemChanged.IsBound()) {
+        OnEquippedItemChanged.Broadcast(CurrentEquipable);
+    }
+}
+
+void ASeetheCharacter::UpdateHealth() {
+    if (OnHealthChanged.IsBound()) {
+        OnHealthChanged.Broadcast(CurrentHealth);
+    }
+}
+
+void ASeetheCharacter::UpdateIdleStatus(const float DeltaTime) {
+    const FVector Velocity = GetVelocity();
+    const bool bMoving     = Velocity.SizeSquared() > 10.0f;
+
+    if (bMoving) {
+        IdleTime        = 0.0f;
+        bIsIdleInactive = false;
+    } else {
+        IdleTime += DeltaTime;
+
+        if (!bIsIdleInactive && IdleTime >= IdleInactiveThreshold) {
+            bIsIdleInactive = true;
+
+            if (OnPlayerIdleInactive.IsBound()) {
+                OnPlayerIdleInactive.Broadcast();
+            }
+        }
+    }
 }

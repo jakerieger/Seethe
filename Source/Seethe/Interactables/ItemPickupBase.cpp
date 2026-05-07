@@ -2,10 +2,13 @@
 
 
 #include "ItemPickupBase.h"
+
+#include "CharacterAnimInstance.h"
 #include "InventoryComponent.h"
 #include "PickupAnimData.h"
+#include "Seethe.h"
 #include "Seethe/SeetheCharacter.h"
-#include "Seethe/UI/InteractPopupWidget.h"
+#include "Seethe/UI/PickupInteractWidget.h"
 #include "Seethe/UI/HUDWidget.h"
 
 AItemPickupBase::AItemPickupBase() {
@@ -13,12 +16,29 @@ AItemPickupBase::AItemPickupBase() {
 
     ItemMesh      = CreateDefaultSubobject<UStaticMeshComponent>("ItemMesh");
     RootComponent = ItemMesh;
+    ItemMesh->SetupAttachment(InteractCollider);
     ItemMesh->SetRenderCustomDepth(false);
     ItemMesh->SetCustomDepthStencilValue(2);
+    ItemMesh->CanCharacterStepUpOn = ECB_No;
+    ItemMesh->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+    ItemMesh->SetCollisionObjectType(ECC_PhysicsBody);
+    ItemMesh->SetCollisionResponseToAllChannels(ECR_Block);
+    ItemMesh->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+    ItemMesh->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+    ItemMesh->SetCollisionResponseToChannel(ECC_ENEMY, ECR_Ignore);
+    ItemMesh->SetCollisionResponseToChannel(ECC_NIAGARA_ONLY, ECR_Ignore);
 
-    InteractWidget = CreateDefaultSubobject<UWidgetComponent>("InteractWidget");
-    InteractWidget->SetVisibility(false);
-    InteractWidget->SetupAttachment(ItemMesh);
+    InteractCollider = CreateDefaultSubobject<USphereComponent>("InteractCollider");
+    InteractCollider->SetupAttachment(ItemMesh);
+    InteractCollider->CanCharacterStepUpOn = ECB_No;
+    InteractCollider->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+    InteractCollider->SetCollisionObjectType(ECC_WorldDynamic);
+    InteractCollider->SetCollisionResponseToAllChannels(ECR_Ignore);
+    InteractCollider->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+
+    PickupWidget = CreateDefaultSubobject<UWidgetComponent>("InteractWidget");
+    PickupWidget->SetVisibility(false);
+    PickupWidget->SetupAttachment(ItemMesh);
 }
 
 bool AItemPickupBase::Interact(ASeetheCharacter* Character) {
@@ -26,17 +46,13 @@ bool AItemPickupBase::Interact(ASeetheCharacter* Character) {
         UAnimMontage* PickupMontage = AnimData->GetPickupMontage(Character->HasEquippedItem());
 
         if (PickupMontage) {
-            if (USkeletalMeshComponent* Arms = Character->GetMesh1P()) {
-                if (UAnimInstance* Anim = Arms->GetAnimInstance()) {
-                    const auto Duration = Anim->Montage_Play(PickupMontage);
+            if (auto* AI = Character->GetAnimInstance1P()) {
+                if (const auto Duration = AI->Montage_Play(PickupMontage); Duration > 0.0f) {
+                    FOnMontageEnded EndDelegate;
+                    EndDelegate.BindUObject(this, &AItemPickupBase::OnPickupMontageEnded, Character);
+                    AI->Montage_SetEndDelegate(EndDelegate, PickupMontage);
 
-                    if (Duration > 0.0f) {
-                        FOnMontageEnded EndDelegate;
-                        EndDelegate.BindUObject(this, &AItemPickupBase::OnPickupMontageEnded, Character);
-                        Anim->Montage_SetEndDelegate(EndDelegate, PickupMontage);
-
-                        return true;
-                    }
+                    return true;
                 }
             }
         }
@@ -68,19 +84,19 @@ UStaticMeshComponent* AItemPickupBase::GetMesh() const {
 }
 
 void AItemPickupBase::ShowInteractWidget() const {
-    InteractWidget->SetVisibility(true);
+    PickupWidget->SetVisibility(true);
 }
 
 void AItemPickupBase::HideInteractWidget() const {
-    InteractWidget->SetVisibility(false);
+    PickupWidget->SetVisibility(false);
 }
 
 void AItemPickupBase::BeginPlay() {
     Super::BeginPlay();
 
-    const UInteractPopupWidget* InteractPopupWidget = Cast<UInteractPopupWidget>(InteractWidget->GetWidget());
+    const UPickupInteractWidget* InteractPopupWidget = Cast<UPickupInteractWidget>(PickupWidget->GetWidget());
     if (InteractPopupWidget) {
-        InteractPopupWidget->SetupPrompt(InteractIcon, GetInteractMessage());
+        InteractPopupWidget->SetItem(InventoryItem);
     }
 }
 

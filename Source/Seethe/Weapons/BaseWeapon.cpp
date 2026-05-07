@@ -18,14 +18,3 @@ bool ABaseWeapon::CanAttack() {
 
     return bCanAttack;
 }
-
-void ABaseWeapon::PlayImpactForceFeedback(const ASeetheCharacter* Character) const {
-    if (!Character) { return; }
-    if (APlayerController* PC = Cast<APlayerController>(Character->GetController())) {
-        if (ImpactFFB) {
-            FForceFeedbackParameters Parameters;
-            Parameters.bLooping = false;
-            PC->ClientPlayForceFeedback(ImpactFFB, Parameters);
-        }
-    }
-}

@@ -4,7 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "ConfirmNotificationWidget.h"
+#include "CrosshairWidget.h"
+#include "EquipableInterface.h"
 #include "ToastNotificationWidget.h"
+#include "WeaponInterface.h"
 #include "Blueprint/UserWidget.h"
 #include "Components/CanvasPanel.h"
 #include "Components/Image.h"
@@ -32,7 +35,7 @@ public:
     TObjectPtr<UCanvasPanel> RootCanvas;
 
     UPROPERTY(meta = (BindWidget))
-    TObjectPtr<UImage> WeaponCrosshairImage;
+    TObjectPtr<UCanvasPanel> CrosshairContainer;
 
     UPROPERTY(meta = (BindWidget))
     TObjectPtr<UImage> HitmarkerImage;
@@ -83,31 +86,23 @@ public:
 protected:
     virtual void NativeConstruct() override;
     virtual void NativeTick(const FGeometry& Geometry, float TimeDelta) override;
+    virtual void NativeOnInitialized() override;
 
 public:
     UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* UpdateHealth(float HealthPercentage);
+    void UpdateHealth(float HealthPercent);
 
     UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* SetCrosshairTexture(UTexture2D* CrosshairTexture);
+    void ShowCrosshair() const;
 
     UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* ShowCrosshair();
+    void HideCrosshair() const;
 
     UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* HideCrosshair();
+    void UpdateBatteryChargeState(EBatteryChargeState State);
 
     UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* TriggerHitmarker();
-
-    UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* SetCrosshairColor(const FColor& Color);
-
-    UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* UpdateBatteryChargeState(EBatteryChargeState State);
-
-    UFUNCTION(BlueprintCallable, Category="HUD")
-    UHUDWidget* SetChargeIconColor(const FColor& Color);
+    void SetChargeIconColor(const FColor& Color);
 
     UFUNCTION(BlueprintCallable, Category="HUD")
     void PostToastNotification(const FToastNotification& Notification, float Duration = 3.0f) const;
@@ -117,6 +112,8 @@ public:
 
     UFUNCTION(BlueprintCallable, Category="HUD")
     UConfirmNotificationWidget* GetCurrentConfirmWidget();
+
+    UCrosshairWidget* GetCurrentCrosshairWidget();
 
 private:
     UPROPERTY(EditAnywhere, Category = "Sway")
@@ -133,15 +130,32 @@ private:
     float HitmarkerTimer {0.0f};
     float HitmarkerDuration {0.3f};
 
+    int32 LastCurrentAmmo {0};
+    int32 LastTotalAmmo {0};
+
     UPROPERTY()
     TArray<FConfirmNotification> ConfirmNotificationQueue;
 
     UPROPERTY()
     TObjectPtr<UConfirmNotificationWidget> CurrentConfirmWidget;
 
-    UHUDWidget* UpdateLastLookInput(const FVector2D& LookInput);
-    UHUDWidget* SetChargeIconBlink(bool bBlink);
+    UPROPERTY()
+    TObjectPtr<UCrosshairWidget> CurrentCrosshairWidget;
+
+    UPROPERTY()
+    TScriptInterface<IWeaponInterface> CurrentWeaponInterface;
+
+    UPROPERTY()
+    TScriptInterface<IEquipableInterface> CurrentEquipableInterface;
+
+    void UpdateLastLookInput(const FVector2D& LookInput);
+    void SetChargeIconBlink(bool bBlink);
 
     UFUNCTION()
     void ProcessNextConfirmNotification();
+
+    UFUNCTION()
+    void UpdateEquippedItem(class ABaseEquipable* Equipable);
+
+    void CrosshairSway(float TimeDelta);
 };

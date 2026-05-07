@@ -23,7 +23,7 @@ void UBatteryItem::Use_Implementation(ASeetheCharacter* Character,
 bool UBatteryItem::CanUse_Implementation(ASeetheCharacter* Character, int32 Index, const EInventoryCategory& Category) {
     if (Character) {
         const auto* Current = Character->GetCurrentEquipable();
-        if (Current && Current->IsA(AFlashlightTool::StaticClass())) {
+        if (Current && Current->IsA<AFlashlightTool>()) {
             return true;
         }
     }

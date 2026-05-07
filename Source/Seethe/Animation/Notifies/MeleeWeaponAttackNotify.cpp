@@ -1,14 +1,14 @@
 // Copyright (C) 2026 Jake Rieger
 
 
-#include "WeaponHitNotifyState.h"
+#include "MeleeWeaponAttackNotify.h"
 #include "Seethe/SeetheCharacter.h"
 #include "BaseWeapon.h"
 
-void UWeaponHitNotifyState::NotifyBegin(USkeletalMeshComponent* MeshComp,
-                                        UAnimSequenceBase* Animation,
-                                        float TotalDuration,
-                                        const FAnimNotifyEventReference& EventReference) {
+void UMeleeWeaponAttackNotify::NotifyBegin(USkeletalMeshComponent* MeshComp,
+                                           UAnimSequenceBase* Animation,
+                                           float TotalDuration,
+                                           const FAnimNotifyEventReference& EventReference) {
     if (!MeshComp) { return; }
     if (const ASeetheCharacter* Character = Cast<ASeetheCharacter>(MeshComp->GetOwner())) {
         if (!Character->HasEquippedItem()) { return; }
@@ -19,9 +19,9 @@ void UWeaponHitNotifyState::NotifyBegin(USkeletalMeshComponent* MeshComp,
     }
 }
 
-void UWeaponHitNotifyState::NotifyEnd(USkeletalMeshComponent* MeshComp,
-                                      UAnimSequenceBase* Animation,
-                                      const FAnimNotifyEventReference& EventReference) {
+void UMeleeWeaponAttackNotify::NotifyEnd(USkeletalMeshComponent* MeshComp,
+                                         UAnimSequenceBase* Animation,
+                                         const FAnimNotifyEventReference& EventReference) {
     if (!MeshComp) { return; }
     if (const ASeetheCharacter* Character = Cast<ASeetheCharacter>(MeshComp->GetOwner())) {
         if (!Character->HasEquippedItem()) { return; }

@@ -1,0 +1,83 @@
+﻿<wpf:ResourceDictionary xml:space="preserve" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:s="clr-namespace:System;assembly=mscorlib" xmlns:ss="urn:shemas-jetbrains-com:settings-storage-xaml" xmlns:wpf="http://schemas.microsoft.com/winfx/2006/xaml/presentation">
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Text/@EntryValue">$COPYRIGHT_LINE$
+
+#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+UCLASS()
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+public:
+	$PREFIX$$UNPREFIXED_CLASS_NAME$();
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=PREFIXED_005FBASE_005FCLASS_005FNAME/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=COPYRIGHT_005FLINE/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=BASE_005FCLASS_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=UNPREFIXED_005FCLASS_005FNAME/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=CLASS_005FMODULE_005FAPI_005FMACRO/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=PREFIX/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=C3F5286BA514457D555D05D714C839BD/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=33A5B83F4E2D8BD4E3FF6FB3F82C3310/Text/@EntryValue">$COPYRIGHT_LINE$
+
+#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+
+UCLASS( ClassGroup=(Custom), meta=(BlueprintSpawnableComponent) )
+class $CLASS_MODULE_API_MACRO$$PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+
+public:	
+	$PREFIX$$UNPREFIXED_CLASS_NAME$();
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=33A5B83F4E2D8BD4E3FF6FB3F82C3310/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=33A5B83F4E2D8BD4E3FF6FB3F82C3310/Field/=PREFIXED_005FBASE_005FCLASS_005FNAME/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=33A5B83F4E2D8BD4E3FF6FB3F82C3310/Field/=COPYRIGHT_005FLINE/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=33A5B83F4E2D8BD4E3FF6FB3F82C3310/Field/=BASE_005FCLASS_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=33A5B83F4E2D8BD4E3FF6FB3F82C3310/Field/=UNPREFIXED_005FCLASS_005FNAME/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=33A5B83F4E2D8BD4E3FF6FB3F82C3310/Field/=CLASS_005FMODULE_005FAPI_005FMACRO/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=33A5B83F4E2D8BD4E3FF6FB3F82C3310/Field/=PREFIX/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=33A5B83F4E2D8BD4E3FF6FB3F82C3310/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A68CC5E9FE7E541755A2CB1AFA4AECBF/Text/@EntryValue">$COPYRIGHT_LINE$
+
+#pragma once
+
+#include "CoreMinimal.h"
+$BASE_CLASS_INCLUDE_DIRECTIVE$
+#include "$UNPREFIXED_CLASS_NAME$.generated.h"
+
+UINTERFACE()
+class $PREFIX$$UNPREFIXED_CLASS_NAME$ : public $PREFIXED_BASE_CLASS_NAME$
+{
+	GENERATED_BODY()
+};
+
+
+class $CLASS_MODULE_API_MACRO$I$UNPREFIXED_CLASS_NAME$
+{
+	GENERATED_BODY()
+	
+public:
+	
+};
+</s:String>
+	<s:Boolean x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A68CC5E9FE7E541755A2CB1AFA4AECBF/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVEAABB/@KeyIndexDefined">False</s:Boolean>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A68CC5E9FE7E541755A2CB1AFA4AECBF/Field/=PREFIXED_005FBASE_005FCLASS_005FNAME/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A68CC5E9FE7E541755A2CB1AFA4AECBF/Field/=COPYRIGHT_005FLINE/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A68CC5E9FE7E541755A2CB1AFA4AECBF/Field/=BASE_005FCLASS_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A68CC5E9FE7E541755A2CB1AFA4AECBF/Field/=UNPREFIXED_005FCLASS_005FNAME/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A68CC5E9FE7E541755A2CB1AFA4AECBF/Field/=PREFIX/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A68CC5E9FE7E541755A2CB1AFA4AECBF/Field/=CLASS_005FMODULE_005FAPI_005FMACRO/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String>
+	<s:String x:Key="/Default/PatternsAndTemplates/LiveTemplates/Template/=A68CC5E9FE7E541755A2CB1AFA4AECBF/Field/=MY_005FHEADER_005FINCLUDE_005FDIRECTIVE/Expression/@EntryValue">substituteUnrealMacro("", "")</s:String></wpf:ResourceDictionary>

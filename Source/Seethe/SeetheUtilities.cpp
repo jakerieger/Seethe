@@ -61,3 +61,9 @@ void USeetheUtilities::DrawHitDebugLineTrace(const UObject* WorldContext,
         DrawDebugLine(World, HitResult.TraceStart, HitResult.TraceEnd, LineColor, false, Lifetime, 0, LineThickness);
     }
 }
+
+void USeetheUtilities::PrintStringToScreen(const FString& String) {
+    if (GEngine) {
+        GEngine->AddOnScreenDebugMessage(-1, 5.0f, FColor::Green, String);
+    }
+}

@@ -4,56 +4,83 @@
 #include "HUDWidget.h"
 #include "Components/CanvasPanelSlot.h"
 #include "Components/VerticalBoxSlot.h"
+#include "FlashlightTool.h"
+#include "Seethe.h"
+#include "SeetheCharacter.h"
+#include "BaseWeapon.h"
+#include "GameFramework/PawnMovementComponent.h"
 
 void UHUDWidget::NativeConstruct() {
     Super::NativeConstruct();
-    WeaponCrosshairImage->SetVisibility(ESlateVisibility::Hidden);
+
+    CrosshairContainer->SetVisibility(ESlateVisibility::Hidden);
+    CurrentWeaponText->SetText(FTEXT("None"));
+    CurrentAmmoText->SetText(FTEXT("-"));
+    TotalAmmoText->SetText(FTEXT("-"));
 }
 
-UHUDWidget* UHUDWidget::UpdateHealth(const float HealthPercentage) {
-    if (HealthBar) {
-        HealthBar->SetPercent(HealthPercentage);
+void UHUDWidget::NativeTick(const FGeometry& Geometry, const float TimeDelta) {
+    Super::NativeTick(Geometry, TimeDelta);
 
-        if (HealthPercentage <= 0.25f) {
+    CrosshairSway(TimeDelta);
+
+    if (CurrentWeaponInterface) {
+        const int32 CurrentAmmo = CurrentWeaponInterface->GetCurrentAmmo();
+        const int32 TotalAmmo   = CurrentWeaponInterface->GetTotalAmmo();
+
+        if (CurrentAmmo != LastCurrentAmmo) {
+            LastCurrentAmmo = CurrentAmmo;
+            CurrentAmmoText->SetText(FText::FromString(FString::FromInt(LastCurrentAmmo)));
+        }
+
+        if (TotalAmmo != LastTotalAmmo) {
+            LastTotalAmmo = TotalAmmo;
+            TotalAmmoText->SetText(FText::FromString(FString::FromInt(LastTotalAmmo)));
+        }
+    }
+
+    if (CurrentCrosshairWidget) {
+        if (const ASeetheCharacter* SC = Cast<ASeetheCharacter>(GetOwningPlayerPawn())) {
+            const auto CurrentSpeed = SC->GetMovementSpeed();
+            if (CurrentSpeed >= SC->GetSprintSpeed()) {
+                CurrentCrosshairWidget->SetSpread(1.0f);
+            } else if (CurrentSpeed >= SC->GetWalkSpeed()) {
+                CurrentCrosshairWidget->SetSpread(0.5f);
+            } else {
+                CurrentCrosshairWidget->SetSpread(0.0f);
+            }
+        }
+    }
+}
+
+void UHUDWidget::NativeOnInitialized() {
+    Super::NativeOnInitialized();
+
+    if (ASeetheCharacter* SC = Cast<ASeetheCharacter>(GetOwningPlayerPawn())) {
+        SC->OnEquippedItemChanged.AddDynamic(this, &UHUDWidget::UpdateEquippedItem);
+        SC->OnHealthChanged.AddDynamic(this, &UHUDWidget::UpdateHealth);
+    }
+}
+
+void UHUDWidget::UpdateHealth(const float HealthPercent) {
+    if (HealthBar) {
+        HealthBar->SetPercent(HealthPercent);
+
+        if (HealthPercent <= 0.25f) {
             HealthBar->SetFillColorAndOpacity(FLinearColor::Red);
         }
     }
-    return this;
 }
 
-UHUDWidget* UHUDWidget::SetCrosshairTexture(UTexture2D* CrosshairTexture) {
-    if (CrosshairTexture) {
-        WeaponCrosshairImage->SetBrushFromTexture(CrosshairTexture);
-    } else {
-        HideCrosshair();
-    }
-    return this;
+void UHUDWidget::ShowCrosshair() const {
+    CrosshairContainer->SetVisibility(ESlateVisibility::HitTestInvisible);
 }
 
-UHUDWidget* UHUDWidget::ShowCrosshair() {
-    WeaponCrosshairImage->SetVisibility(ESlateVisibility::Visible);
-    return this;
+void UHUDWidget::HideCrosshair() const {
+    CrosshairContainer->SetVisibility(ESlateVisibility::Hidden);
 }
 
-UHUDWidget* UHUDWidget::HideCrosshair() {
-    WeaponCrosshairImage->SetVisibility(ESlateVisibility::Hidden);
-    return this;
-}
-
-UHUDWidget* UHUDWidget::TriggerHitmarker() {
-    if (HitmarkerImage) {
-        HitmarkerTimer = HitmarkerDuration;
-        HitmarkerImage->SetOpacity(1.0f);
-    }
-    return this;
-}
-
-UHUDWidget* UHUDWidget::SetCrosshairColor(const FColor& Color) {
-    WeaponCrosshairImage->SetBrushTintColor(Color);
-    return this;
-}
-
-UHUDWidget* UHUDWidget::UpdateBatteryChargeState(const EBatteryChargeState State) {
+void UHUDWidget::UpdateBatteryChargeState(const EBatteryChargeState State) {
     SetChargeIconBlink(false);
 
     switch (State) {
@@ -75,13 +102,10 @@ UHUDWidget* UHUDWidget::UpdateBatteryChargeState(const EBatteryChargeState State
             break;
         }
     }
-
-    return this;
 }
 
-UHUDWidget* UHUDWidget::SetChargeIconColor(const FColor& Color) {
+void UHUDWidget::SetChargeIconColor(const FColor& Color) {
     ChargeIcon->SetColorAndOpacity(Color);
-    return this;
 }
 
 void UHUDWidget::PostToastNotification(const FToastNotification& Notification, const float Duration) const {
@@ -112,6 +136,10 @@ UConfirmNotificationWidget* UHUDWidget::GetCurrentConfirmWidget() {
     return CurrentConfirmWidget;
 }
 
+UCrosshairWidget* UHUDWidget::GetCurrentCrosshairWidget() {
+    return CurrentCrosshairWidget;
+}
+
 void UHUDWidget::ProcessNextConfirmNotification() {
     if (ConfirmNotificationQueue.IsEmpty()) {
         if (CurrentConfirmWidget) {
@@ -132,21 +160,71 @@ void UHUDWidget::ProcessNextConfirmNotification() {
     }
 }
 
-void UHUDWidget::NativeTick(const FGeometry& Geometry, const float TimeDelta) {
-    Super::NativeTick(Geometry, TimeDelta);
+void UHUDWidget::UpdateEquippedItem(ABaseEquipable* Equipable) {
+    if (Equipable) {
+        HideCrosshair();
 
+        CurrentEquipableInterface = Equipable;
+        CurrentWeaponText->SetText(FTEXT(CurrentEquipableInterface->GetName()));
+
+        if (Equipable->CrosshairWidgetClass) {
+            if (CurrentCrosshairWidget) {
+                CurrentCrosshairWidget->RemoveFromParent();
+                CurrentCrosshairWidget = nullptr;
+            }
+
+            if (auto* NewCrosshair = CreateWidget<UCrosshairWidget>(this, Equipable->CrosshairWidgetClass)) {
+                CurrentCrosshairWidget = NewCrosshair;
+
+                if (auto* CanvasSlot = CrosshairContainer->AddChildToCanvas(CurrentCrosshairWidget)) {
+                    CanvasSlot->SetAnchors(FAnchors(0.5f, 0.5f, 0.5f, 0.5f));
+                    CanvasSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+                    CanvasSlot->SetAutoSize(true);
+                    CanvasSlot->SetPosition(FVector2D(0.f, 0.f));
+
+                    CurrentCrosshairWidget->SetSpread(0.0f);
+                    ShowCrosshair();
+                }
+            }
+        }
+
+        if (Equipable->Implements<UWeaponInterface>()) {
+            CurrentWeaponInterface = Equipable;
+            CurrentAmmoText->SetText(FText::FromString(FString::FromInt(CurrentWeaponInterface->GetCurrentAmmo())));
+            TotalAmmoText->SetText(FText::FromString(FString::FromInt(CurrentWeaponInterface->GetTotalAmmo())));
+        } else {
+            CurrentAmmoText->SetText(FTEXT("-"));
+            TotalAmmoText->SetText(FTEXT("-"));
+        }
+
+        if (Equipable->IsA<AFlashlightTool>()) {
+            auto* FlashlightTool = Cast<AFlashlightTool>(Equipable);
+            if (FlashlightTool) {
+                FlashlightTool->OnUpdateBatteryLife.AddDynamic(this, &UHUDWidget::UpdateBatteryChargeState);
+            }
+        }
+    } else {
+        HideCrosshair();
+
+        CurrentWeaponText->SetText(FTEXT("None"));
+        CurrentAmmoText->SetText(FTEXT("-"));
+        TotalAmmoText->SetText(FTEXT("-"));
+    }
+}
+
+void UHUDWidget::CrosshairSway(const float TimeDelta) {
     const auto TargetOffset = FVector2D(LastLookInput.X * -SwayIntensity, LastLookInput.Y * SwayIntensity);
     CurrentSwayOffset       = FMath::Vector2DInterpTo(CurrentSwayOffset, TargetOffset, TimeDelta, SwaySmoothing);
 
-    auto UpdateSlotPos = [this](const UWidget* Image) {
-        if (Image) {
-            if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Image->Slot)) {
+    auto UpdateSlotPos = [this](const UWidget* InWidget) {
+        if (InWidget) {
+            if (UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(InWidget->Slot)) {
                 CanvasSlot->SetPosition(CurrentSwayOffset);
             }
         }
     };
 
-    UpdateSlotPos(WeaponCrosshairImage);
+    UpdateSlotPos(CrosshairContainer);
     UpdateSlotPos(HitmarkerImage);
 
     if (HitmarkerTimer > 0.0f) {
@@ -161,17 +239,14 @@ void UHUDWidget::NativeTick(const FGeometry& Geometry, const float TimeDelta) {
     }
 }
 
-UHUDWidget* UHUDWidget::UpdateLastLookInput(const FVector2D& LookInput) {
+void UHUDWidget::UpdateLastLookInput(const FVector2D& LookInput) {
     LastLookInput = LookInput;
-    return this;
 }
 
-UHUDWidget* UHUDWidget::SetChargeIconBlink(const bool bBlink) {
+void UHUDWidget::SetChargeIconBlink(const bool bBlink) {
     if (bBlink) {
         PlayAnimation(ChargeBlinkAnim, 0.0f, 0, EUMGSequencePlayMode::Forward, 1.0f);
     } else {
         StopAnimation(ChargeBlinkAnim);
     }
-
-    return this;
 }

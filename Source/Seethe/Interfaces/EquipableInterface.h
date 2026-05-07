@@ -21,6 +21,7 @@ public:
     virtual void UnEquip(ASeetheCharacter* Character) = 0;
     virtual void Drop(ASeetheCharacter* Character) = 0;
     virtual void Use(ASeetheCharacter* Character) = 0;
+    virtual FString GetName() = 0;
 };
 
 /** Stores the result of fetching the Equipable's left-hand socket transform (if present) **/

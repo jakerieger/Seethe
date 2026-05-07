@@ -5,6 +5,7 @@
 #include "CoreMinimal.h"
 #include "InventoryItem.h"
 #include "Components/ActorComponent.h"
+#include "Templates/UnrealTypeTraits.h"
 #include "InventoryComponent.generated.h"
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnInventoryChanged);
@@ -24,6 +25,22 @@ struct FInventoryCategory {
     void Initialize();
     bool AddItem(UInventoryItem* Item);
     bool RemoveItem(int32 Index);
+};
+
+template<typename T>
+concept IsInventoryItem = TIsDerivedFrom<T, UInventoryItem>::IsDerived;
+
+template<IsInventoryItem T>
+struct FFindItemResult {
+    bool bFound {false};
+    T* Item {nullptr};
+    FInventorySlot* Slot {nullptr};
+    int32 Index {-1};
+
+    FFindItemResult(T* InItem, FInventorySlot& InSlot, const int32 InIndex) : bFound(true), Item(InItem), Slot(&InSlot),
+                                                                              Index(InIndex) {}
+
+    FFindItemResult() = default;
 };
 
 UCLASS(ClassGroup=(Custom), meta=(BlueprintSpawnableComponent))
@@ -53,6 +70,22 @@ public:
 
     virtual void BeginPlay() override;
     void ResetInventory();
+
+    template<IsInventoryItem T>
+    FFindItemResult<T> FindItem(const EInventoryCategory& Category) {
+        const auto* CategoryData = InventoryCategories.Find(Category);
+        if (!CategoryData) { return FFindItemResult<T>(); }
+
+        const auto& Slots = GetSlots(Category);
+        for (int32 i = 0; i < CategoryData->UsedSlots; i++) {
+            auto& Slot = const_cast<FInventorySlot&>(Slots[i]);
+            if (Slot.ItemData && Slot.ItemData->IsA<T>()) {
+                return FFindItemResult<T>(Cast<T>(Slot.ItemData), Slot, i);
+            }
+        }
+
+        return FFindItemResult<T>();
+    }
 
 private:
     bool CanUseItem(const int32 Index, const EInventoryCategory& Category);

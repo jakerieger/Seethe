@@ -25,6 +25,7 @@ AFlareGunProjectile::AFlareGunProjectile() {
     BrightnessTimeline  = CreateDefaultSubobject<UTimelineComponent>("BrightnessTimeline");
     AttenuationTimeline = CreateDefaultSubobject<UTimelineComponent>("AttenuationTimeline");
     SpeedTimeline       = CreateDefaultSubobject<UTimelineComponent>("SpeedTimeline");
+    GravityTimeline     = CreateDefaultSubobject<UTimelineComponent>("GravityTimeline");
 }
 
 void AFlareGunProjectile::BeginPlay() {
@@ -48,6 +49,12 @@ void AFlareGunProjectile::BeginPlay() {
         SpeedUpdateDelegate.BindUFunction(this, FName("SpeedTimelineUpdate"));
         SpeedTimeline->AddInterpFloat(SpeedCurve, SpeedUpdateDelegate);
         SpeedTimeline->PlayFromStart();
+    }
+
+    if (GravityCurve) {
+        GravityUpdateDelegate.BindUFunction(this, FName("GravityTimelineUpdate"));
+        GravityTimeline->AddInterpFloat(GravityCurve, GravityUpdateDelegate);
+        GravityTimeline->PlayFromStart();
     }
 
     ImpactCollider->OnComponentHit.AddDynamic(this, &AFlareGunProjectile::OnProjectileHit);
@@ -85,6 +92,11 @@ void AFlareGunProjectile::SpeedTimelineUpdate(const float SpeedDelta) const {
     ProjectileMovement->MaxSpeed = CurrentSpeed;
     const FVector NewVelocity    = ProjectileMovement->Velocity.GetSafeNormal() * CurrentSpeed;
     ProjectileMovement->Velocity = NewVelocity;
+    ProjectileMovement->UpdateComponentVelocity();
+}
+
+void AFlareGunProjectile::GravityTimelineUpdate(const float GravityScale) const {
+    ProjectileMovement->ProjectileGravityScale = GravityScale;
     ProjectileMovement->UpdateComponentVelocity();
 }
 

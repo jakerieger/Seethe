@@ -39,6 +39,9 @@ class SEETHE_API AFlareGunProjectile : public AActor {
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<UTimelineComponent> SpeedTimeline;
 
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<UTimelineComponent> GravityTimeline;
+
 public:
     AFlareGunProjectile();
 
@@ -50,6 +53,9 @@ public:
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     TObjectPtr<UCurveFloat> SpeedCurve;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite)
+    TObjectPtr<UCurveFloat> GravityCurve;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite)
     float MaxSpeed {10000.0f};
@@ -75,6 +81,7 @@ private:
     FOnTimelineEvent BrightnessFinishedDelegate;
     FOnTimelineFloat AttenuationUpdateDelegate;
     FOnTimelineFloat SpeedUpdateDelegate;
+    FOnTimelineFloat GravityUpdateDelegate;
 
     UPROPERTY()
     TMap<APawn*, FTimerHandle> TickDamageMap;
@@ -90,6 +97,9 @@ private:
 
     UFUNCTION()
     void SpeedTimelineUpdate(float SpeedDelta) const;
+
+    UFUNCTION()
+    void GravityTimelineUpdate(float GravityScale) const;
 
     UFUNCTION(BlueprintCallable)
     void SelfDestruct();

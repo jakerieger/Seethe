@@ -13,8 +13,21 @@ public class Seethe : ModuleRules
 		]);
 
 		PublicIncludePaths.AddRange([
-			"Seethe/Interfaces", "Seethe/Inventory", "Seethe/UI", "Seethe/Weapons", "Seethe/Enemies", "Seethe/Tools",
-			"Seethe/Interactables", "Seethe/UI/Notifications"
+			"Seethe",
+			"Seethe/Animation",
+			"Seethe/Animation/Notifies",
+			"Seethe/DataAssets",
+			"Seethe/Enemies",
+			"Seethe/Interactables",
+			"Seethe/Interfaces",
+			"Seethe/Inventory",
+			"Seethe/Tools",
+			"Seethe/UI",
+			"Seethe/UI/Crosshairs",
+			"Seethe/Weapons",
+			"Seethe/Weapons/Axe",
+			"Seethe/Weapons/FlareGun",
+			"Seethe/Weapons/Revolver"
 		]);
 
 		// Uncomment this if you want to visualize line traces

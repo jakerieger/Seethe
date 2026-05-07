@@ -98,6 +98,8 @@ public:
     UPROPERTY(EditAnywhere, Category="Inventory")
     TSubclassOf<UInventorySlotWidget> SlotWidgetClass;
 
+    void InitializeWidget(UInventoryComponent* InInventory);
+
 protected:
     UFUNCTION()
     void OnInventoryUpdate();
@@ -116,7 +118,6 @@ private:
     TMap<FKey, bool> KeyStates;
 
     void UpdateLookAxes(float X, float Y);
-    void InitializeWidget(UInventoryComponent* InInventory);
 
     UPROPERTY()
     TObjectPtr<UInventorySlotWidget> CurrentlySelectedSlot;

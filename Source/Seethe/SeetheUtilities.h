@@ -45,4 +45,7 @@ public:
                                       float Lifetime          = 1.0f,
                                       const FColor& LineColor = FColor::Cyan,
                                       float LineThickness     = 1.0f);
+
+    UFUNCTION(BlueprintCallable, Category="Seethe Utilities")
+    static void PrintStringToScreen(const FString& String);
 };

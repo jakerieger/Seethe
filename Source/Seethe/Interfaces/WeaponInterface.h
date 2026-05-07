@@ -21,6 +21,8 @@ public:
     virtual void Attack(ASeetheCharacter* Character) = 0;
     virtual void Reload(ASeetheCharacter* Character) = 0;
     virtual bool CanAttack() = 0;
+    virtual int32 GetCurrentAmmo() = 0;
+    virtual int32 GetTotalAmmo() = 0;
 
 protected:
     virtual void PerformTrace(const FVector& Start, const FVector& End) = 0;

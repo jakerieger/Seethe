@@ -9,6 +9,8 @@
 
 class USpotLightComponent;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnUpdateBatteryLife, EBatteryChargeState, ChargeState);
+
 UCLASS()
 class SEETHE_API AFlashlightTool : public ABaseEquipable {
     GENERATED_BODY()
@@ -21,18 +23,25 @@ public:
 
     virtual void UnEquip(ASeetheCharacter* Character) override;
     virtual void Use(ASeetheCharacter* Character) override;
+    virtual FString GetName() override { return "Flashlight"; };
 
-    UFUNCTION(BlueprintCallable, Category="Flashlight")
+    UFUNCTION(BlueprintCallable)
     void SetOn(bool bShouldBeOn) const;
 
-    UFUNCTION(BlueprintPure, Category="Flashlight")
+    UFUNCTION(BlueprintCallable)
+    void ToggleOn() const;
+
+    UFUNCTION(BlueprintPure)
     bool IsOn() const;
 
-    UFUNCTION(BlueprintPure, Category="Flashlight")
+    UFUNCTION(BlueprintPure)
     bool IsDead() const;
 
-    UFUNCTION(BlueprintCallable, Category="Flashlight")
+    UFUNCTION(BlueprintCallable)
     void Recharge(float Amount);
+
+    UPROPERTY()
+    FOnUpdateBatteryLife OnUpdateBatteryLife;
 
 protected:
     virtual void BeginPlay() override;
@@ -41,7 +50,7 @@ protected:
     FTimerHandle TimerHandle_BatteryLifeUpdate;
 
 public:
-    UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Flashlight")
+    UPROPERTY(EditAnywhere, BlueprintReadOnly)
     TObjectPtr<UAnimMontage> PowerMontage;
 
 private:

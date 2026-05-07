@@ -3,6 +3,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Components/SphereComponent.h"
 #include "GameFramework/Actor.h"
 #include "Seethe/Interfaces/InteractableInterface.h"
 #include "Components/WidgetComponent.h"
@@ -15,12 +16,14 @@ UCLASS()
 class SEETHE_API AItemPickupBase : public AActor, public IInteractableInterface {
     GENERATED_BODY()
 
-    /** Blueprint Components **/
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
     TObjectPtr<UStaticMeshComponent> ItemMesh;
 
     UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
-    TObjectPtr<UWidgetComponent> InteractWidget;
+    TObjectPtr<USphereComponent> InteractCollider;
+
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Components", meta = (AllowPrivateAccess = "true"))
+    TObjectPtr<UWidgetComponent> PickupWidget;
 
 public:
     /** CTOR **/
@@ -29,9 +32,6 @@ public:
     /** Properties **/
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
     TObjectPtr<UInventoryItem> InventoryItem;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
-    TObjectPtr<UTexture2D> InteractIcon;
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Inventory")
     TObjectPtr<UPickupAnimData> AnimData;

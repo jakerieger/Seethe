@@ -37,6 +37,10 @@ void AFlashlightTool::SetOn(const bool bShouldBeOn) const {
     }
 }
 
+void AFlashlightTool::ToggleOn() const {
+    SetOn(!IsOn());
+}
+
 bool AFlashlightTool::IsOn() const {
     return LightComponent && LightComponent->IsVisible();
 }
@@ -81,24 +85,27 @@ void AFlashlightTool::BeginPlay() {
 }
 
 void AFlashlightTool::UpdateBatteryLife() {
-    const ASeetheCharacter* PC = Cast<ASeetheCharacter>(GetOwner());
-    if (!PC) { return; }
-
     if (IsOn()) {
+        EBatteryChargeState NewState;
+
         if (!IsDead()) {
             BatteryLife -= BatteryDrainRate;
 
             if (BatteryLife <= 33.0f) {
-                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::LowCharge);
+                NewState = EBatteryChargeState::LowCharge;
             } else if (BatteryLife <= 67.0f) {
-                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::MidCharge);
+                NewState = EBatteryChargeState::MidCharge;
             } else {
-                PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::FullCharge);
+                NewState = EBatteryChargeState::FullCharge;
             }
         } else {
             BatteryLife = 0.0f;
             SetOn(false);
-            PC->GetHUDWidget()->UpdateBatteryChargeState(EBatteryChargeState::Dead);
+            NewState = EBatteryChargeState::Dead;
+        }
+
+        if (OnUpdateBatteryLife.IsBound()) {
+            OnUpdateBatteryLife.Broadcast(NewState);
         }
     }
 }

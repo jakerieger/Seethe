@@ -2,6 +2,9 @@
 
 
 #include "InventoryComponent.h"
+
+#include "HUDBase.h"
+#include "InventoryWidget.h"
 #include "Seethe/SeetheCharacter.h"
 
 void FInventoryCategory::Initialize() {
@@ -84,6 +87,13 @@ TArray<FInventorySlot>& UInventoryComponent::GetSlots(const EInventoryCategory& 
 
 void UInventoryComponent::BeginPlay() {
     Super::BeginPlay();
+
+    if (const ASeetheCharacter* SC = Cast<ASeetheCharacter>(GetOwner())) {
+        if (auto* InventoryWidget = SC->GetInventoryWidget()) {
+            InventoryWidget->InitializeWidget(this);
+        }
+    }
+
     ResetInventory();
 }
 

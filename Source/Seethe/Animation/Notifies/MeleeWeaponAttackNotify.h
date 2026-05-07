@@ -4,10 +4,10 @@
 
 #include "CoreMinimal.h"
 #include "Animation/AnimNotifies/AnimNotifyState.h"
-#include "WeaponHitNotifyState.generated.h"
+#include "MeleeWeaponAttackNotify.generated.h"
 
 UCLASS()
-class SEETHE_API UWeaponHitNotifyState : public UAnimNotifyState {
+class SEETHE_API UMeleeWeaponAttackNotify : public UAnimNotifyState {
     GENERATED_BODY()
 
 public:

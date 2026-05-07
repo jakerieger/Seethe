@@ -2,7 +2,8 @@
 
 
 #include "BaseEquipable.h"
-#include "FirstPersonAnimInstance.h"
+#include "CharacterAnimInstance.h"
+#include "EquipableAnimationData.h"
 #include "Seethe/SeetheCharacter.h"
 
 ABaseEquipable::ABaseEquipable() {
@@ -22,20 +23,17 @@ void ABaseEquipable::Equip(ASeetheCharacter* Character) {
         AttachToComponent(Arms, AttachmentRules, FName("S_Attach"));
         Mesh1P->SetRelativeTransform(AttachOffset);
 
-        if (UFirstPersonAnimInstance* Anim1P = Character->GetAnimInstance1P()) {
-            Anim1P->UpdateLocomotionSequences(AnimData);
+        auto* CharacterAI = Character->GetAnimInstance1P();
+        auto* EquipableAI = GetMesh1P()->GetAnimInstance();
 
-            if (EquipMontage) {
-                const auto Duration = Anim1P->Montage_Play(EquipMontage);
-                if (Duration > 0.0f) {
-                    FOnMontageEnded End;
-                    End.BindUObject(this, &ABaseEquipable::OnEquipMontageEnded);
-                    Anim1P->Montage_SetEndDelegate(End, EquipMontage);
-                    return;
-                }
+        if (Locomotion) {
+            if (CharacterAI) {
+                CharacterAI->UpdateLocomotionSequences(Locomotion);
             }
+        }
 
-            OnEquipMontageEnded(nullptr, false);
+        if (EquipAnimations) {
+            EquipAnimations->PlayAnimations(CharacterAI, EquipableAI);
         }
     }
 }
@@ -43,40 +41,52 @@ void ABaseEquipable::Equip(ASeetheCharacter* Character) {
 void ABaseEquipable::UnEquip(ASeetheCharacter* Character) {
     if (!Character) { return; }
 
-    if (const auto* Arms = Character->GetMesh1P()) {
-        if (UFirstPersonAnimInstance* Anim1P = Character->GetAnimInstance1P()) {
-            if (UnEquipMontage) {
-                const auto Duration = Anim1P->Montage_Play(UnEquipMontage);
-                if (Duration > 0.0f) {
-                    FOnMontageEnded End;
-                    End.BindUObject(this, &ABaseEquipable::OnUnEquipMontageEnded, Anim1P);
-                    Anim1P->Montage_SetEndDelegate(End, UnEquipMontage);
-                    return;
-                }
-            }
+    auto* CharacterAI = Character->GetAnimInstance1P();
+    auto* EquipableAI = GetMesh1P()->GetAnimInstance();
 
-            OnUnEquipMontageEnded(nullptr, false, Anim1P);
+    if (UnEquipAnimations) {
+        const auto Result = UnEquipAnimations->PlayAnimations(CharacterAI, EquipableAI);
+        if (Result.bPlayedCharacterMontage && Result.CharacterMontageDuration) {
+            FOnMontageEnded End;
+            End.BindUObject(this, &ABaseEquipable::OnMontageEnded_UnEquip);
+            CharacterAI->Montage_SetEndDelegate(End, UnEquipAnimations->CharacterMontage);
+            return;
         }
     }
+
+    OnMontageEnded_UnEquip(nullptr, false);
 }
 
 void ABaseEquipable::Drop(ASeetheCharacter* Character) {
     if (!Character) { return; }
 
-    if (const auto* Arms = Character->GetMesh1P()) {
-        if (UFirstPersonAnimInstance* Anim1P = Character->GetAnimInstance1P()) {
-            if (DropMontage) {
-                const auto Duration = Anim1P->Montage_Play(DropMontage);
-                if (Duration > 0.0f) {
-                    FOnMontageEnded End;
-                    End.BindUObject(this, &ABaseEquipable::OnDropMontageEnded, Anim1P);
-                    Anim1P->Montage_SetEndDelegate(End, DropMontage);
-                    return;
-                }
-            }
+    auto* CharacterAI = Character->GetAnimInstance1P();
+    auto* EquipableAI = GetMesh1P()->GetAnimInstance();
 
-            OnDropMontageEnded(nullptr, false, Anim1P);
+    if (DropAnimations) {
+        const auto Result = DropAnimations->PlayAnimations(CharacterAI, EquipableAI);
+        if (Result.bPlayedCharacterMontage && Result.CharacterMontageDuration) {
+            FOnMontageEnded End;
+            End.BindUObject(this, &ABaseEquipable::OnMontageEnded_UnEquip);
+            CharacterAI->Montage_SetEndDelegate(End, DropAnimations->CharacterMontage);
+            return;
         }
+    }
+
+    OnMontageEnded_Drop(nullptr, false);
+}
+
+void ABaseEquipable::OnEquipNotify(const EEquipMontageNotifyAction EquipAction) {
+    switch (EquipAction) {
+        case EEquipMontageNotifyAction::Equip:
+            OnEquipNotify_Equip();
+            break;
+        case EEquipMontageNotifyAction::UnEquip:
+            OnEquipNotify_UnEquip();
+            break;
+        case EEquipMontageNotifyAction::Drop:
+            OnEquipNotify_Drop();
+            break;
     }
 }
 
@@ -96,29 +106,50 @@ FTransform ABaseEquipable::GetLeftHandSocketTransform() const {
     return FTransform::Identity;
 }
 
-void ABaseEquipable::OnEquipMontageEnded(UAnimMontage*,
-                                         bool) {}
+void ABaseEquipable::OnEquipNotify_Equip() {}
 
-void ABaseEquipable::OnUnEquipMontageEnded(UAnimMontage*,
-                                           bool,
-                                           UFirstPersonAnimInstance* InAnimInstance) {
-    if (InAnimInstance) {
-        InAnimInstance->StopAllMontages(0.2f);
-        InAnimInstance->SetDefaultLocomotion();
-    }
-
+void ABaseEquipable::OnEquipNotify_UnEquip() {
     SetActorHiddenInGame(true);
+
+    const auto* Character = Cast<ASeetheCharacter>(GetOwner());
+    if (Character) {
+        if (auto* CharacterAI = Character->GetAnimInstance1P()) {
+            CharacterAI->StopAllMontages(0.2f);
+            CharacterAI->SetDefaultLocomotion();
+        }
+    }
 }
 
-void ABaseEquipable::OnDropMontageEnded(UAnimMontage*,
-                                        bool,
-                                        UFirstPersonAnimInstance* InAnimInstance) {
-    if (InAnimInstance) {
-        InAnimInstance->StopAllMontages(0.2f);
-        InAnimInstance->SetDefaultLocomotion();
+void ABaseEquipable::OnEquipNotify_Drop() {
+    SetActorHiddenInGame(true);
+
+    const auto* Character = Cast<ASeetheCharacter>(GetOwner());
+    if (Character) {
+        if (auto* CharacterAI = Character->GetAnimInstance1P()) {
+            CharacterAI->StopAllMontages(0.2f);
+            CharacterAI->SetDefaultLocomotion();
+        }
     }
 
-    SetActorHiddenInGame(true);
     DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
     Destroy();
+}
+
+void ABaseEquipable::OnMontageEnded_Equip(UAnimMontage*,
+                                          bool) {}
+
+void ABaseEquipable::OnMontageEnded_UnEquip(UAnimMontage*,
+                                            bool) {
+    auto* Character = Cast<ASeetheCharacter>(GetOwner());
+    if (Character) {
+        Character->SetCurrentEquipable(nullptr);
+    }
+}
+
+void ABaseEquipable::OnMontageEnded_Drop(UAnimMontage*,
+                                         bool) {
+    auto* Character = Cast<ASeetheCharacter>(GetOwner());
+    if (Character) {
+        Character->SetCurrentEquipable(nullptr);
+    }
 }
