@@ -23,6 +23,7 @@
 #include "Seethe.h"
 #include "SeetheGameMode.h"
 
+
 ASeetheCharacter::ASeetheCharacter() {
     FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
     FirstPersonCamera->SetupAttachment(GetMesh());
@@ -43,6 +44,7 @@ ASeetheCharacter::ASeetheCharacter() {
     GetCharacterMovement()->MaxWalkSpeed  = WalkSpeed;
     GetCharacterMovement()->JumpZVelocity = JumpHeight;
 }
+
 
 #pragma region Getters
 USkeletalMeshComponent* ASeetheCharacter::GetMesh1P() const { return FirstPersonArms; }
@@ -153,6 +155,7 @@ IWeaponInterface* ASeetheCharacter::GetWeaponInterface() const {
 }
 #pragma endregion
 
+
 #pragma region Setters
 void ASeetheCharacter::SetHealth(const int32 Health) {
     CurrentHealth = Health;
@@ -168,6 +171,7 @@ void ASeetheCharacter::SetLocomotionState(const ELocomotionState& NewLocomotionS
     CurrentLocomotionState = NewLocomotionState;
 }
 #pragma endregion
+
 
 #pragma region Class Overrides
 void ASeetheCharacter::BeginPlay() {
@@ -284,6 +288,7 @@ float ASeetheCharacter::TakeDamage(const float DamageAmount,
 }
 #pragma endregion
 
+
 #pragma region Input Handlers
 void ASeetheCharacter::OnMove(const FInputActionValue& Value) {
     const FVector2D MovementVector = Value.Get<FVector2D>();
@@ -382,6 +387,7 @@ void ASeetheCharacter::OnSprintEnded() {
     bSprinting                           = false;
 }
 #pragma endregion
+
 
 #pragma region Tick Handlers
 void ASeetheCharacter::UpdateStrafeFactor(const float DeltaTime) {
@@ -574,6 +580,7 @@ void ASeetheCharacter::UpdateIdleStatus(const float DeltaTime) {
 }
 #pragma endregion
 
+
 #pragma region Gameplay
 void ASeetheCharacter::Die() {
     // Drop all our inventory items in place
@@ -710,6 +717,7 @@ void ASeetheCharacter::UseItem(const int32 Index, const EInventoryCategory& Cate
     }
 }
 #pragma endregion
+
 
 #pragma region Delegate Handlers
 void ASeetheCharacter::UpdateEquipable() {
