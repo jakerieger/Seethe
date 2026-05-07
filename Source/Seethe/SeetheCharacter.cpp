@@ -2,28 +2,26 @@
 
 // ReSharper disable CppMemberFunctionMayBeConst
 #include "SeetheCharacter.h"
-
-#include "InputActionValue.h"
-#include "EnhancedInputComponent.h"
-#include "GameFramework/CharacterMovementComponent.h"
-#include "Components/SkeletalMeshComponent.h"
-#include "Camera/CameraComponent.h"
-#include "GameFramework/GameModeBase.h"
-
-#include "Seethe.h"
-#include "BaseWeapon.h"
 #include "BaseEquipable.h"
-#include "DeathScreenWidget.h"
+#include "BaseWeapon.h"
+#include "Camera/CameraComponent.h"
 #include "CharacterAnimInstance.h"
-#include "SeetheGameMode.h"
-#include "InventoryComponent.h"
+#include "CharacterInputData.h"
+#include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "DeathScreenWidget.h"
+#include "EnhancedInputComponent.h"
+#include "FootstepAudioData.h"
+#include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/GameModeBase.h"
 #include "HUDBase.h"
 #include "HUDWidget.h"
+#include "InputActionValue.h"
+#include "InventoryComponent.h"
 #include "InventoryWidget.h"
-#include "CharacterInputData.h"
-#include "FootstepAudioData.h"
-#include "Components/CapsuleComponent.h"
 #include "Kismet/GameplayStatics.h"
+#include "Seethe.h"
+#include "SeetheGameMode.h"
 
 ASeetheCharacter::ASeetheCharacter() {
     FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
@@ -46,6 +44,132 @@ ASeetheCharacter::ASeetheCharacter() {
     GetCharacterMovement()->JumpZVelocity = JumpHeight;
 }
 
+#pragma region Getters
+USkeletalMeshComponent* ASeetheCharacter::GetMesh1P() const { return FirstPersonArms; }
+UCameraComponent* ASeetheCharacter::GetCamera1P() const { return FirstPersonCamera; }
+UInventoryComponent* ASeetheCharacter::GetInventory() const { return InventoryComponent; }
+ABaseEquipable* ASeetheCharacter::GetCurrentEquipable() const { return CurrentEquipable; }
+ABaseWeapon* ASeetheCharacter::GetCurrentWeapon() const { return Cast<ABaseWeapon>(CurrentEquipable); }
+bool ASeetheCharacter::HasEquippedItem() const { return CurrentEquipable != nullptr; }
+float ASeetheCharacter::GetHealthPercent() const { return CurrentHealth / 100.0f; }
+bool ASeetheCharacter::IsSprinting() const { return bSprinting; }
+bool ASeetheCharacter::IsMoving() const { return GetVelocity().SizeSquared() > 10.0f; }
+bool ASeetheCharacter::IsGrounded() const { return !GetMovementComponent()->IsFalling(); }
+bool ASeetheCharacter::IsFalling() const { return GetVelocity().Z < 0.0f; }
+float ASeetheCharacter::GetWalkSpeed() const { return WalkSpeed; }
+float ASeetheCharacter::GetSprintSpeed() const { return SprintSpeed; }
+float ASeetheCharacter::GetMovementSpeed() const { return GetMovementComponent()->Velocity.Length(); }
+ELocomotionState ASeetheCharacter::GetLocomotionState() const { return CurrentLocomotionState; }
+
+AHUDBase* ASeetheCharacter::GetHUDInstance() const {
+    if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
+        return Cast<AHUDBase>(PC->GetHUD());
+    }
+    return nullptr;
+}
+
+UHUDWidget* ASeetheCharacter::GetHUDWidget() const {
+    if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
+        if (const AHUDBase* HUD = Cast<AHUDBase>(PC->GetHUD())) {
+            return HUD->GetHUDWidget();
+        }
+    }
+
+    return nullptr;
+}
+
+UInventoryWidget* ASeetheCharacter::GetInventoryWidget() const {
+    if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
+        if (const AHUDBase* HUD = Cast<AHUDBase>(PC->GetHUD())) {
+            return HUD->GetInventoryWidget();
+        }
+    }
+
+    return nullptr;
+}
+
+APlayerCameraManager* ASeetheCharacter::GetPlayerCameraManager() const {
+    if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
+        return PC->PlayerCameraManager;
+    }
+
+    return nullptr;
+}
+
+UCharacterAnimInstance* ASeetheCharacter::GetAnimInstance1P() const {
+    return Cast<UCharacterAnimInstance>(GetMesh1P()->GetAnimInstance());
+}
+
+FLeftHandSocketResult ASeetheCharacter::GetLeftHandSocketTransform() const {
+    FLeftHandSocketResult Result;
+
+    if (HasEquippedItem()) {
+        const auto* Equipped   = GetCurrentEquipable();
+        Result.bHasSocket      = Equipped->HasLeftHandSocket();
+        Result.SocketTransform = Equipped->GetLeftHandSocketTransform();
+    }
+
+    return Result;
+}
+
+float ASeetheCharacter::GetStrafeFactor() const {
+    const FVector RightVector        = GetActorRightVector();
+    const FVector VelocityNormalized = GetVelocity().GetSafeNormal();
+    return FVector::DotProduct(VelocityNormalized, RightVector);
+}
+
+float ASeetheCharacter::GetStrafeBlendAlpha() const {
+    return FMath::Abs(SmoothedStrafeFactor);
+}
+
+FRotator ASeetheCharacter::GetStrafeRotation() const {
+    FRotator Rotation {FRotator::ZeroRotator};
+
+    if (SmoothedStrafeFactor < 0) {
+        Rotation.Pitch = -StrafeRotationAmount;
+    } else {
+        Rotation.Pitch = StrafeRotationAmount;
+    }
+
+    return Rotation;
+}
+
+FVector ASeetheCharacter::GetStrafeTranslation() const {
+    FVector Translation {FVector::ZeroVector};
+
+    if (FMath::Abs(SmoothedStrafeFactor) > 0) {
+        Translation.Y = -StrafeTranslationAmount;
+    }
+
+    return Translation;
+}
+
+IEquipableInterface* ASeetheCharacter::GetEquipableInterface() const {
+    return Cast<IEquipableInterface>(CurrentEquipable);
+}
+
+IWeaponInterface* ASeetheCharacter::GetWeaponInterface() const {
+    return Cast<IWeaponInterface>(CurrentEquipable);
+}
+#pragma endregion
+
+#pragma region Setters
+void ASeetheCharacter::SetHealth(const int32 Health) {
+    CurrentHealth = Health;
+    UpdateHealth();
+}
+
+void ASeetheCharacter::SetCurrentEquipable(ABaseEquipable* NewCurrentEquipable) {
+    CurrentEquipable = NewCurrentEquipable;
+    UpdateEquipable();
+}
+
+void ASeetheCharacter::SetLocomotionState(const ELocomotionState& NewLocomotionState) {
+    CurrentLocomotionState = NewLocomotionState;
+}
+#pragma endregion
+
+#pragma region Class Overrides
 void ASeetheCharacter::BeginPlay() {
     Super::BeginPlay();
 
@@ -86,6 +210,81 @@ void ASeetheCharacter::Landed(const FHitResult& Hit) {
     }
 }
 
+void ASeetheCharacter::Tick(const float DeltaTime) {
+    Super::Tick(DeltaTime);
+
+    Mesh1PSway(DeltaTime);
+    Mesh1PAvoidClipping(DeltaTime);
+    UpdateIdleStatus(DeltaTime);
+    UpdateStrafeFactor(DeltaTime);
+    UpdateCurveDrivenEffects(DeltaTime);
+
+    TraceForInteractables();
+    TraceForEnemies();
+}
+
+void ASeetheCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
+    if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent); EIC && InputData) {
+        EIC->BindAction(InputData->MoveAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnMove);
+        EIC->BindAction(InputData->LookAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnLook);
+        EIC->BindAction(InputData->UseAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnUse);
+        EIC->BindAction(InputData->ReloadAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnReload);
+        EIC->BindAction(InputData->InteractAction,
+                        ETriggerEvent::Started,
+                        this,
+                        &ASeetheCharacter::OnInteract);
+        EIC->BindAction(InputData->InventoryAction,
+                        ETriggerEvent::Started,
+                        this,
+                        &ASeetheCharacter::OnToggleInventory);
+        EIC->BindAction(InputData->UnEquipAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnUnEquip);
+
+        EIC->BindAction(InputData->LookAction, ETriggerEvent::Completed, this, &ASeetheCharacter::OnStopLook);
+        EIC->BindAction(InputData->LookAction, ETriggerEvent::Canceled, this, &ASeetheCharacter::OnStopLook);
+
+        EIC->BindAction(InputData->SprintAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnSprintStarted);
+        EIC->BindAction(InputData->SprintAction, ETriggerEvent::Completed, this, &ASeetheCharacter::OnSprintEnded);
+
+        EIC->BindAction(InputData->JumpAction, ETriggerEvent::Started, this, &ASeetheCharacter::Jump);
+        EIC->BindAction(InputData->JumpAction, ETriggerEvent::Completed, this, &ASeetheCharacter::StopJumping);
+    }
+}
+
+void ASeetheCharacter::PossessedBy(AController* NewController) {
+    Super::PossessedBy(NewController);
+
+    APlayerController* PC = Cast<APlayerController>(NewController);
+    if (PC) {
+        PC->SetInputMode(FInputModeGameOnly {});
+    }
+}
+
+float ASeetheCharacter::TakeDamage(const float DamageAmount,
+                                   const FDamageEvent& DamageEvent,
+                                   AController* EventInstigator,
+                                   AActor* DamageCauser) {
+    const float DamageToApply = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+
+    CurrentHealth -= FMath::Floor(DamageToApply);
+    UpdateHealth();
+
+    if (GetPlayerCameraManager()) {
+        GetPlayerCameraManager()->StartCameraShake(HitCameraShake);
+    }
+
+    if (auto* PC = Cast<APlayerController>(GetController()); PC && HitFFB) {
+        PC->ClientPlayForceFeedback(HitFFB);
+    }
+
+    if (CurrentHealth <= 0) {
+        Die();
+    }
+
+    return DamageToApply;
+}
+#pragma endregion
+
+#pragma region Input Handlers
 void ASeetheCharacter::OnMove(const FInputActionValue& Value) {
     const FVector2D MovementVector = Value.Get<FVector2D>();
     if (GetController()) {
@@ -107,6 +306,10 @@ void ASeetheCharacter::OnLook(const FInputActionValue& Value) {
         GetHUDWidget()->UpdateLastLookInput(LookAxisVector);
         GetInventoryWidget()->UpdateLookAxes(LookAxisX, LookAxisY);
     }
+}
+
+void ASeetheCharacter::OnStopLook() {
+    GetHUDWidget()->UpdateLastLookInput(FVector2D::ZeroVector);
 }
 
 void ASeetheCharacter::OnUse() {
@@ -178,123 +381,9 @@ void ASeetheCharacter::OnSprintEnded() {
     GetCharacterMovement()->MaxWalkSpeed = WalkSpeed;
     bSprinting                           = false;
 }
+#pragma endregion
 
-void ASeetheCharacter::SetHealth(const int32 Health) {
-    CurrentHealth = Health;
-    UpdateHealth();
-}
-
-void ASeetheCharacter::Die() {
-    // Drop all our inventory items in place
-    if (HasEquippedItem()) {
-        Drop();
-    }
-
-    InventoryComponent->ResetInventory();
-
-    SetActorHiddenInGame(true);
-    SetActorTickEnabled(false);
-    SetActorEnableCollision(false);
-
-    if (APlayerController* PC = Cast<APlayerController>(GetController())) {
-        PC->SetInputMode(FInputModeUIOnly {});
-        // Show death screen
-        if (const ASeetheGameMode* GM = Cast<ASeetheGameMode>(GetWorld()->GetAuthGameMode())) {
-            GM->ShowDeathScreen(PC);
-        }
-    }
-
-    GetWorldTimerManager().SetTimer(
-        RespawnHandle,
-        this,
-        &ASeetheCharacter::Respawn,
-        6.0f,
-        false);
-}
-
-void ASeetheCharacter::HandleFootstep(const EFootstepType Type) {
-    const UCapsuleComponent* Capsule = GetCapsuleComponent();
-    const FVector CapsuleBottom      = GetActorLocation() - FVector(0, 0, Capsule->GetScaledCapsuleHalfHeight());
-
-    const FVector TraceStart = CapsuleBottom + FVector(0, 0, 10.0f); // Start slightly above floor
-    const FVector TraceEnd = CapsuleBottom - FVector(0, 0, 20.f); // Check for 10 units beyond the bottom of our capsule
-
-    FHitResult Hit;
-    FCollisionQueryParams Params;
-    Params.AddIgnoredActor(this);
-    Params.bReturnPhysicalMaterial = true;
-
-    const bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params);
-    if (!bHit) { return; }
-
-    const auto Surface = static_cast<EFootstepSurface>(Hit.PhysMaterial->SurfaceType.GetIntValue());
-    UFootstepAudioData* AudioData {nullptr};
-    if (const auto* Found = FootstepDataMap.Find(Surface)) {
-        AudioData = Found->LoadSynchronous();
-    }
-    // Failed to load or didn't exist
-    if (!AudioData) {
-        AudioData = FootstepDataMap.Find(EFootstepSurface::Default)->LoadSynchronous();
-    }
-    // Failed to loud
-    if (!AudioData) { return; }
-
-    USoundBase* Sound = AudioData->GetSoundForType(Type);
-    if (Sound) {
-        UGameplayStatics::SpawnSoundAtLocation(this, Sound, Hit.Location);
-    }
-}
-
-float ASeetheCharacter::GetStrafeFactor() const {
-    const FVector RightVector        = GetActorRightVector();
-    const FVector VelocityNormalized = GetVelocity().GetSafeNormal();
-    return FVector::DotProduct(VelocityNormalized, RightVector);
-}
-
-float ASeetheCharacter::GetStrafeBlendAlpha() const {
-    return FMath::Abs(SmoothedStrafeFactor);
-}
-
-FRotator ASeetheCharacter::GetStrafeRotation() const {
-    FRotator Rotation {FRotator::ZeroRotator};
-
-    if (SmoothedStrafeFactor < 0) {
-        Rotation.Pitch = -StrafeRotationAmount;
-    } else {
-        Rotation.Pitch = StrafeRotationAmount;
-    }
-
-    return Rotation;
-}
-
-FVector ASeetheCharacter::GetStrafeTranslation() const {
-    FVector Translation {FVector::ZeroVector};
-
-    if (FMath::Abs(SmoothedStrafeFactor) > 0) {
-        Translation.Y = -StrafeTranslationAmount;
-    }
-
-    return Translation;
-}
-
-void ASeetheCharacter::OnStopLook() {
-    GetHUDWidget()->UpdateLastLookInput(FVector2D::ZeroVector);
-}
-
-void ASeetheCharacter::Respawn() {
-    AController* Saved = GetController();
-
-    DetachFromControllerPendingDestroy();
-
-    if (Saved) {
-        if (AGameModeBase* GM = GetWorld()->GetAuthGameMode()) {
-            GM->RestartPlayer(Saved);
-        }
-    }
-
-    Destroy();
-}
-
+#pragma region Tick Handlers
 void ASeetheCharacter::UpdateStrafeFactor(const float DeltaTime) {
     const float TargetStrafeFactor = GetStrafeFactor();
     SmoothedStrafeFactor = FMath::FInterpTo(SmoothedStrafeFactor, TargetStrafeFactor, DeltaTime, StrafeInterpSpeed);
@@ -321,11 +410,11 @@ void ASeetheCharacter::UpdateCurveDrivenEffects(const float DeltaTime) {
 
         float MinZ, MaxZ;
         BobCurveZ->GetTimeRange(MinZ, MaxZ);
-        const FVector2f RangeZ {MinZ, MaxZ};
+        const FFloatInterval RangeZ {MinZ, MaxZ};
 
         float MinY, MaxY;
         BobCurveY->GetTimeRange(MinY, MaxY);
-        const FVector2f RangeY {MinY, MaxY};
+        const FFloatInterval RangeY {MinY, MaxY};
 
         // Curves have different lengths
         if (RangeZ != RangeY) {
@@ -334,9 +423,8 @@ void ASeetheCharacter::UpdateCurveDrivenEffects(const float DeltaTime) {
         }
 
         // TODO: Cache this in BeginPlay
-        const float MinTime = RangeZ.X;
-        const float MaxTime = RangeZ.Y;
-        const auto Duration = MaxTime - MinTime;
+        const float MaxTime = RangeZ.Max;
+        const auto Duration = MaxTime - RangeZ.Min;
 
         if (CurveTime > MaxTime) {
             CurveTime -= Duration;
@@ -346,7 +434,7 @@ void ASeetheCharacter::UpdateCurveDrivenEffects(const float DeltaTime) {
         const auto BobY           = BobCurveY->GetFloatValue(CurveTime);
         const auto FootstepsValue = FootstepCurve->GetFloatValue(CurveTime);
 
-        // Trigger footstep sound if this is the peak
+        // Check for and trigger footstep sound
         {
             const bool bWasBelow = FootstepsPrevious < FootstepsThreshold;
             const bool bIsAbove  = FootstepsValue >= FootstepsThreshold;
@@ -377,237 +465,6 @@ void ASeetheCharacter::UpdateCurveDrivenEffects(const float DeltaTime) {
                                                        DeltaTime,
                                                        BobTransitionSpeed);
     GetCamera1P()->SetRelativeLocation(TargetCameraLocation);
-}
-
-void ASeetheCharacter::Tick(const float DeltaTime) {
-    Super::Tick(DeltaTime);
-
-    Mesh1PSway(DeltaTime);
-    Mesh1PAvoidClipping(DeltaTime);
-    UpdateIdleStatus(DeltaTime);
-    UpdateStrafeFactor(DeltaTime);
-    UpdateCurveDrivenEffects(DeltaTime);
-
-    TraceForInteractables();
-    TraceForEnemies();
-}
-
-void ASeetheCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) {
-    if (UEnhancedInputComponent* EIC = Cast<UEnhancedInputComponent>(PlayerInputComponent); EIC && InputData) {
-        EIC->BindAction(InputData->MoveAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnMove);
-        EIC->BindAction(InputData->LookAction, ETriggerEvent::Triggered, this, &ASeetheCharacter::OnLook);
-        EIC->BindAction(InputData->UseAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnUse);
-        EIC->BindAction(InputData->ReloadAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnReload);
-        EIC->BindAction(InputData->InteractAction,
-                        ETriggerEvent::Started,
-                        this,
-                        &ASeetheCharacter::OnInteract);
-        EIC->BindAction(InputData->InventoryAction,
-                        ETriggerEvent::Started,
-                        this,
-                        &ASeetheCharacter::OnToggleInventory);
-        EIC->BindAction(InputData->UnEquipAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnUnEquip);
-
-        EIC->BindAction(InputData->LookAction, ETriggerEvent::Completed, this, &ASeetheCharacter::OnStopLook);
-        EIC->BindAction(InputData->LookAction, ETriggerEvent::Canceled, this, &ASeetheCharacter::OnStopLook);
-
-        EIC->BindAction(InputData->SprintAction, ETriggerEvent::Started, this, &ASeetheCharacter::OnSprintStarted);
-        EIC->BindAction(InputData->SprintAction, ETriggerEvent::Completed, this, &ASeetheCharacter::OnSprintEnded);
-
-        EIC->BindAction(InputData->JumpAction, ETriggerEvent::Started, this, &ASeetheCharacter::Jump);
-        EIC->BindAction(InputData->JumpAction, ETriggerEvent::Completed, this, &ASeetheCharacter::StopJumping);
-    }
-}
-
-void ASeetheCharacter::PossessedBy(AController* NewController) {
-    Super::PossessedBy(NewController);
-
-    APlayerController* PC = Cast<APlayerController>(NewController);
-    if (PC) {
-        PC->SetInputMode(FInputModeGameOnly {});
-    }
-}
-
-USkeletalMeshComponent* ASeetheCharacter::GetMesh1P() const { return FirstPersonArms; }
-UCameraComponent* ASeetheCharacter::GetCamera1P() const { return FirstPersonCamera; }
-UInventoryComponent* ASeetheCharacter::GetInventory() const { return InventoryComponent; }
-ABaseEquipable* ASeetheCharacter::GetCurrentEquipable() const { return CurrentEquipable; }
-ABaseWeapon* ASeetheCharacter::GetCurrentWeapon() const { return Cast<ABaseWeapon>(CurrentEquipable); }
-bool ASeetheCharacter::HasEquippedItem() const { return CurrentEquipable != nullptr; }
-float ASeetheCharacter::GetHealthPercent() const { return CurrentHealth / 100.0f; }
-
-AHUDBase* ASeetheCharacter::GetHUDInstance() const {
-    if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
-        return Cast<AHUDBase>(PC->GetHUD());
-    }
-    return nullptr;
-}
-
-UHUDWidget* ASeetheCharacter::GetHUDWidget() const {
-    if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
-        if (const AHUDBase* HUD = Cast<AHUDBase>(PC->GetHUD())) {
-            return HUD->GetHUDWidget();
-        }
-    }
-
-    return nullptr;
-}
-
-UInventoryWidget* ASeetheCharacter::GetInventoryWidget() const {
-    if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
-        if (const AHUDBase* HUD = Cast<AHUDBase>(PC->GetHUD())) {
-            return HUD->GetInventoryWidget();
-        }
-    }
-
-    return nullptr;
-}
-
-APlayerCameraManager* ASeetheCharacter::GetPlayerCameraManager() const {
-    if (const APlayerController* PC = Cast<APlayerController>(GetController())) {
-        return PC->PlayerCameraManager;
-    }
-
-    return nullptr;
-}
-
-UCharacterAnimInstance* ASeetheCharacter::GetAnimInstance1P() const {
-    return Cast<UCharacterAnimInstance>(GetMesh1P()->GetAnimInstance());
-}
-
-FLeftHandSocketResult ASeetheCharacter::GetLeftHandSocketTransform() const {
-    FLeftHandSocketResult Result;
-
-    if (HasEquippedItem()) {
-        const auto* Equipped   = GetCurrentEquipable();
-        Result.bHasSocket      = Equipped->HasLeftHandSocket();
-        Result.SocketTransform = Equipped->GetLeftHandSocketTransform();
-    }
-
-    return Result;
-}
-
-bool ASeetheCharacter::IsSprinting() const { return bSprinting; }
-
-bool ASeetheCharacter::IsMoving() const {
-    return GetVelocity().SizeSquared() > 10.0f;
-}
-
-bool ASeetheCharacter::IsGrounded() const { return !GetMovementComponent()->IsFalling(); }
-
-bool ASeetheCharacter::IsFalling() const { return GetVelocity().Z < 0.0f; }
-
-float ASeetheCharacter::GetWalkSpeed() const { return WalkSpeed; }
-
-float ASeetheCharacter::GetSprintSpeed() const { return SprintSpeed; }
-
-float ASeetheCharacter::GetMovementSpeed() const {
-    return GetMovementComponent()->Velocity.Length();
-}
-
-ELocomotionState ASeetheCharacter::GetLocomotionState() const {
-    return CurrentLocomotionState;
-}
-
-float ASeetheCharacter::TakeDamage(const float DamageAmount,
-                                   const FDamageEvent& DamageEvent,
-                                   AController* EventInstigator,
-                                   AActor* DamageCauser) {
-    const float DamageToApply = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-
-    CurrentHealth -= FMath::Floor(DamageToApply);
-    UpdateHealth();
-
-    if (GetPlayerCameraManager()) {
-        GetPlayerCameraManager()->StartCameraShake(HitCameraShake);
-    }
-
-    if (auto* PC = Cast<APlayerController>(GetController()); PC && HitFFB) {
-        PC->ClientPlayForceFeedback(HitFFB);
-    }
-
-    if (CurrentHealth <= 0) {
-        Die();
-    }
-
-    return DamageToApply;
-}
-
-void ASeetheCharacter::Equip(const UInventoryItemEquipable* Item) {
-    if (CurrentEquipable && CurrentEquipable->GetClass() == Item->EquipableClass) {
-        return;
-    }
-
-    if (CurrentEquipable) {
-        CurrentEquipable->SetActorHiddenInGame(true);
-    }
-
-    ABaseEquipable* TargetEquipable = CachedEquipables.FindRef(Item->EquipableClass);
-    if (!TargetEquipable) {
-        FActorSpawnParameters SpawnInfo;
-        SpawnInfo.Owner      = this;
-        SpawnInfo.Instigator = GetInstigator();
-
-        TargetEquipable = GetWorld()->SpawnActor<ABaseEquipable>(
-            Item->EquipableClass,
-            GetActorLocation(),
-            GetActorRotation(),
-            SpawnInfo);
-
-        CachedEquipables.Add(Item->EquipableClass, TargetEquipable);
-    }
-
-    CurrentEquipable = TargetEquipable;
-    CurrentEquipable->Equip(this);
-
-    UpdateEquipable();
-
-    if (const UHUDWidget* HUD = GetHUDWidget()) {
-        FToastNotification Notification;
-        Notification.Icon    = Item->ItemIcon;
-        Notification.Message = FText::Format(NSLOCTEXT("UI", "Notification", "Equipped {0}"), Item->ItemName);
-        HUD->PostToastNotification(Notification, 1.5f);
-    }
-}
-
-void ASeetheCharacter::UnEquip() {
-    if (!CurrentEquipable) { return; }
-    CurrentEquipable->UnEquip(this);
-
-    // Equipable state handled by ABaseEquipable
-}
-
-void ASeetheCharacter::Drop() {
-    if (!CurrentEquipable) { return; }
-    CachedEquipables.Remove(CurrentEquipable->GetClass());
-    CurrentEquipable->Drop(this);
-
-    // Equipable state handled by ABaseEquipable
-}
-
-void ASeetheCharacter::SetCurrentEquipable(ABaseEquipable* NewCurrentEquipable) {
-    CurrentEquipable = NewCurrentEquipable;
-    UpdateEquipable();
-}
-
-void ASeetheCharacter::UseItem(const int32 Index, const EInventoryCategory& Category) const {
-    if (Index < 0) { return; }
-
-    if (auto* Inventory = GetInventory()) {
-        Inventory->UseItem(Index, Category);
-    }
-}
-
-void ASeetheCharacter::SetLocomotionState(const ELocomotionState& NewLocomotionState) {
-    CurrentLocomotionState = NewLocomotionState;
-}
-
-IEquipableInterface* ASeetheCharacter::GetEquipableInterface() const {
-    return Cast<IEquipableInterface>(CurrentEquipable);
-}
-
-IWeaponInterface* ASeetheCharacter::GetWeaponInterface() const {
-    return Cast<IWeaponInterface>(CurrentEquipable);
 }
 
 void ASeetheCharacter::Mesh1PSway(const float DeltaTime) {
@@ -696,18 +553,6 @@ void ASeetheCharacter::TraceForEnemies() const {
                                                            Params);
 }
 
-void ASeetheCharacter::UpdateEquipable() {
-    if (OnEquippedItemChanged.IsBound()) {
-        OnEquippedItemChanged.Broadcast(CurrentEquipable);
-    }
-}
-
-void ASeetheCharacter::UpdateHealth() {
-    if (OnHealthChanged.IsBound()) {
-        OnHealthChanged.Broadcast(CurrentHealth);
-    }
-}
-
 void ASeetheCharacter::UpdateIdleStatus(const float DeltaTime) {
     const FVector Velocity = GetVelocity();
     const bool bMoving     = Velocity.SizeSquared() > 10.0f;
@@ -727,3 +572,155 @@ void ASeetheCharacter::UpdateIdleStatus(const float DeltaTime) {
         }
     }
 }
+#pragma endregion
+
+#pragma region Gameplay
+void ASeetheCharacter::Die() {
+    // Drop all our inventory items in place
+    if (HasEquippedItem()) {
+        Drop();
+    }
+
+    InventoryComponent->ResetInventory();
+
+    SetActorHiddenInGame(true);
+    SetActorTickEnabled(false);
+    SetActorEnableCollision(false);
+
+    if (APlayerController* PC = Cast<APlayerController>(GetController())) {
+        PC->SetInputMode(FInputModeUIOnly {});
+        // Show death screen
+        if (const ASeetheGameMode* GM = Cast<ASeetheGameMode>(GetWorld()->GetAuthGameMode())) {
+            GM->ShowDeathScreen(PC);
+        }
+    }
+
+    GetWorldTimerManager().SetTimer(
+        RespawnHandle,
+        this,
+        &ASeetheCharacter::Respawn,
+        6.0f,
+        false);
+}
+
+void ASeetheCharacter::HandleFootstep(const EFootstepType Type) {
+    const UCapsuleComponent* Capsule = GetCapsuleComponent();
+    const FVector CapsuleBottom      = GetActorLocation() - FVector(0, 0, Capsule->GetScaledCapsuleHalfHeight());
+
+    const FVector TraceStart = CapsuleBottom + FVector(0, 0, 10.0f); // Start slightly above floor
+    const FVector TraceEnd = CapsuleBottom - FVector(0, 0, 20.f); // Check for 10 units beyond the bottom of our capsule
+
+    FHitResult Hit;
+    FCollisionQueryParams Params;
+    Params.AddIgnoredActor(this);
+    Params.bReturnPhysicalMaterial = true;
+
+    const bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, TraceStart, TraceEnd, ECC_Visibility, Params);
+    if (!bHit) { return; }
+
+    const auto Surface = static_cast<EFootstepSurface>(Hit.PhysMaterial->SurfaceType.GetIntValue());
+    UFootstepAudioData* AudioData {nullptr};
+    if (const auto* Found = FootstepDataMap.Find(Surface)) {
+        AudioData = Found->LoadSynchronous();
+    }
+    // Failed to load or didn't exist
+    if (!AudioData) {
+        AudioData = FootstepDataMap.Find(EFootstepSurface::Default)->LoadSynchronous();
+    }
+    // Failed to loud
+    if (!AudioData) { return; }
+
+    USoundBase* Sound = AudioData->GetSoundForType(Type);
+    if (Sound) {
+        UGameplayStatics::SpawnSoundAtLocation(this, Sound, Hit.Location);
+    }
+}
+
+void ASeetheCharacter::Respawn() {
+    AController* Saved = GetController();
+
+    DetachFromControllerPendingDestroy();
+
+    if (Saved) {
+        if (AGameModeBase* GM = GetWorld()->GetAuthGameMode()) {
+            GM->RestartPlayer(Saved);
+        }
+    }
+
+    Destroy();
+}
+
+void ASeetheCharacter::Equip(const UInventoryItemEquipable* Item) {
+    if (CurrentEquipable && CurrentEquipable->GetClass() == Item->EquipableClass) {
+        return;
+    }
+
+    if (CurrentEquipable) {
+        CurrentEquipable->SetActorHiddenInGame(true);
+    }
+
+    ABaseEquipable* TargetEquipable = CachedEquipables.FindRef(Item->EquipableClass);
+    if (!TargetEquipable) {
+        FActorSpawnParameters SpawnInfo;
+        SpawnInfo.Owner      = this;
+        SpawnInfo.Instigator = GetInstigator();
+
+        TargetEquipable = GetWorld()->SpawnActor<ABaseEquipable>(
+            Item->EquipableClass,
+            GetActorLocation(),
+            GetActorRotation(),
+            SpawnInfo);
+
+        CachedEquipables.Add(Item->EquipableClass, TargetEquipable);
+    }
+
+    CurrentEquipable = TargetEquipable;
+    CurrentEquipable->Equip(this);
+
+    UpdateEquipable();
+
+    if (const UHUDWidget* HUD = GetHUDWidget()) {
+        FToastNotification Notification;
+        Notification.Icon    = Item->ItemIcon;
+        Notification.Message = FText::Format(NSLOCTEXT("UI", "Notification", "Equipped {0}"), Item->ItemName);
+        HUD->PostToastNotification(Notification, 1.5f);
+    }
+}
+
+void ASeetheCharacter::UnEquip() {
+    if (!CurrentEquipable) { return; }
+    CurrentEquipable->UnEquip(this);
+
+    // Equipable state handled by ABaseEquipable
+}
+
+void ASeetheCharacter::Drop() {
+    if (!CurrentEquipable) { return; }
+    CachedEquipables.Remove(CurrentEquipable->GetClass());
+    CurrentEquipable->Drop(this);
+
+    // Equipable state handled by ABaseEquipable
+}
+
+void ASeetheCharacter::UseItem(const int32 Index, const EInventoryCategory& Category) const {
+    if (Index < 0) { return; }
+
+    if (auto* Inventory = GetInventory()) {
+        Inventory->UseItem(Index, Category);
+    }
+}
+#pragma endregion
+
+#pragma region Delegate Handlers
+void ASeetheCharacter::UpdateEquipable() {
+    if (OnEquippedItemChanged.IsBound()) {
+        OnEquippedItemChanged.Broadcast(CurrentEquipable);
+    }
+}
+
+void ASeetheCharacter::UpdateHealth() {
+    if (OnHealthChanged.IsBound()) {
+        OnHealthChanged.Broadcast(CurrentHealth);
+    }
+}
+#pragma endregion
